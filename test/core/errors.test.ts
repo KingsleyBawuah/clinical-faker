@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	ClinicalFakerError,
 	CyclicDependencyError,
+	DependencyNotReadyError,
 	DuplicateNodeIdError,
 	UnresolvedDependencyError,
 } from "../../src/core/errors.ts";
@@ -37,6 +38,14 @@ describe("ClinicalFakerError", () => {
 
 		expect(error).toBeInstanceOf(ClinicalFakerError);
 		expect(error.name).toBe("DuplicateNodeIdError");
+		expect(error.nodeId).toBe("a");
+	});
+
+	test("DependencyNotReadyError extends ClinicalFakerError and carries the requested node id", () => {
+		const error = new DependencyNotReadyError("a");
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("DependencyNotReadyError");
 		expect(error.nodeId).toBe("a");
 	});
 });

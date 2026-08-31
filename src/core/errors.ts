@@ -34,3 +34,23 @@ export class UnresolvedDependencyError extends ClinicalFakerError {
 		this.dependencyId = dependencyId;
 	}
 }
+
+/**
+ * Thrown when a node's `resolve` calls `getResult` for an id it didn't
+ * declare in its own `dependsOn` before that id has actually resolved. A
+ * node can only safely read what it declared as a dependency — this is an
+ * invariant violation in the node's own definition, not a graph-shape
+ * problem `resolveDAG` can catch upfront, but it's still a library-defined
+ * error a node author (including a future custom-node author) should be
+ * able to catch alongside every other `ClinicalFakerError`.
+ */
+export class DependencyNotReadyError extends ClinicalFakerError {
+	readonly nodeId: string;
+
+	constructor(nodeId: string) {
+		super(
+			`DAG node "${nodeId}" was requested before it was resolved — it must be declared in the reading node's own "dependsOn"`,
+		);
+		this.nodeId = nodeId;
+	}
+}

@@ -1,5 +1,6 @@
 import {
 	CyclicDependencyError,
+	DependencyNotReadyError,
 	DuplicateNodeIdError,
 	UnresolvedDependencyError,
 } from "../errors.ts";
@@ -54,9 +55,7 @@ export function resolveDAG(nodes: readonly DAGNode[]): Map<NodeId, unknown> {
 
 	function getResult<T>(nodeId: NodeId): T {
 		if (!results.has(nodeId)) {
-			throw new Error(
-				`Internal DAG error: node "${nodeId}" was requested before it was resolved`,
-			);
+			throw new DependencyNotReadyError(nodeId);
 		}
 		// The resolver stores results type-erased (`unknown`) so it can stay
 		// generic over arbitrary node result types — this is the one place that

@@ -3,6 +3,7 @@ import { resolveDAG } from "../../src/core/dag/resolver.ts";
 import type { DAGNode } from "../../src/core/dag/types.ts";
 import {
 	CyclicDependencyError,
+	DependencyNotReadyError,
 	DuplicateNodeIdError,
 	UnresolvedDependencyError,
 } from "../../src/core/errors.ts";
@@ -211,8 +212,6 @@ describe("resolveDAG", () => {
 			{ id: "y", dependsOn: [], resolve: () => 42 },
 		];
 
-		expect(() => resolveDAG(nodes)).toThrow(
-			'node "y" was requested before it was resolved',
-		);
+		expect(() => resolveDAG(nodes)).toThrow(DependencyNotReadyError);
 	});
 });
