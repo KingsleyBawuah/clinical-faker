@@ -109,7 +109,27 @@ A patient is generated from exactly one archetype (`GenerationOptions.archetype`
 
 Each ontology subset (ICD-10-CM, RxNorm, LOINC, UCUM) is a small literal-array module scoped by system and archetype (e.g. `src/ontology/icd10cm/hypertension.ts`). Archetypes import only the slices they need; codes shared across archetypes (e.g., common vital-sign LOINC codes) live in `common-*.ts` files. `package.json` declares `"sideEffects": false`, which is a hard requirement for this to actually tree-shake — no ontology or registry module may run side-effecting code at module scope.
 
-See `THIRD_PARTY_NOTICES.md` (added once the ontology licensing audit phase lands) for attribution requirements tied to the bundled LOINC/UCUM/RxNorm content.
+See `THIRD_PARTY_NOTICES.md` (added once the ontology licensing & data-accuracy audit phase lands) for attribution requirements tied to the bundled LOINC/UCUM/RxNorm content.
+
+### Ontology data-accuracy verification
+
+Hand-authoring a bounded subset of an ontology (a code plus its display text) carries real risk of typos or stale entries with nothing to catch them. Every bundled code gets checked against a free, no-registration, NLM/Regenstrief-backed authoritative source as part of the ontology licensing & data-accuracy audit phase, rather than trusted on faith:
+
+- **ICD-10-CM**: NLM Clinical Table Search Service (`clinicaltables.nlm.nih.gov/api/icd10cm`) — e.g. looking up `I10` returns `"Essential (primary) hypertension"`, confirmed live.
+- **RxNorm**: NLM's public RxNorm REST API (`rxnav.nlm.nih.gov`) — e.g. looking up RxCUI `314076` returns `"lisinopril 10 MG Oral Tablet"`, confirmed live.
+- **LOINC**: the same NLM Clinical Table Search Service (`clinicaltables.nlm.nih.gov/api/loinc_items`) — no LOINC.org account needed, unlike LOINC's own official search API.
+- **UCUM**: [`@lhncbc/ucum-lhc`](https://github.com/lhncbc/ucum-lhc) (npm) — a UCUM validation library from NLM's Lister Hill National Center, which co-maintains the UCUM spec alongside Regenstrief; can programmatically confirm our bundled unit strings are valid UCUM syntax.
+
+All four are free and require no API key or account — confirmed by querying each directly. This can run as a script/test against bundled ontology files whenever they change, independent of the licensing-text side of that phase.
+
+## Cross-validation with independent parsers
+
+Round-trip tests (serialize, then split by delimiter and confirm fields match the source data) only prove our HL7/FHIR builders are internally consistent with our own serializer — they can't catch a case where our output is subtly non-conformant to the actual spec, since the same misunderstanding would produce both the message and the test that checks it. To catch that class of bug, generated output gets fed into independent, unrelated implementations as part of the test suite for those phases:
+
+- **HL7 v2**: [`hl7v2`](https://github.com/panates/hl7v2) (npm, MIT) — chosen over Redox's `@redox-opensource/redox-hl7-v2` (also real and viable, verified via the npm registry and `gh api`, but plain JS and its last publish is older) because `hl7v2` is TypeScript-native (matches this project's stack) and actively maintained (pushed April 2026 at the time of checking), with parser, serializer, validator, server, and client support.
+- **FHIR R4**: the official HL7 FHIR reference validator, via `fhir-validator-wrapper` — maintained under the official `github.com/FHIR` org by Grahame Grieve, FHIR's technical lead. This is the actual reference implementation the FHIR community uses to certify conformance, not a third-party approximation.
+
+Both are **devDependencies only, used in tests** — never bundled into the published package, so this doesn't touch the zero-runtime-dependency policy. The FHIR validator wraps a Java tool, so its CI job needs a JVM (`actions/setup-java`), added when the FHIR compilation phase starts.
 
 ## `node:net` isolation
 
