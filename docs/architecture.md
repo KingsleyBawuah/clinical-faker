@@ -12,6 +12,17 @@ Everything starts from a single canonical in-memory patient model (`PatientGraph
 
 Because all three are compiled from the same `PatientGraph`, and every entity gets exactly one deterministically-generated ID, the same seed produces cross-referentially consistent output in every format.
 
+## Scope & Non-Goals
+
+The target audience is software engineers testing HL7/FHIR-speaking systems — not clinicians, researchers, or students. Neither this library's design nor the people maintaining it should be treated as a source of clinical accuracy, so the bar for "realistic" is deliberately capped by what the actual use case needs, not by how medically precise the data could theoretically be made:
+
+- **In scope**:
+  - **Structural validity** — well-formed HL7 v2 / FHIR R4, correct types, referential integrity. Non-negotiable; it's the entire reason this library exists instead of hand-written fixture JSON.
+  - **Internal self-consistency** — no contradictions within one generated patient: age matches DOB, gender is compatible with the archetype, an abnormal flag matches its value against its own reference range, nothing physically impossible (see "Generation plausibility invariants" and "Demographic plausibility" below).
+  - **Surface clinical plausibility** — values fall in realistic ranges for the stated condition, and ontology codes/medications are real and appropriate for it. The bar: a knowledgeable reviewer glancing at the output says "plausible hypertensive patient," not "let me audit this against clinical guidelines."
+- **Explicitly out of scope**: population-representative statistical distributions calibrated against real epidemiological studies, drug-drug interaction checking, dose adjustment for renal/hepatic function, detailed multi-year disease-progression pathophysiology, age/sex-specific normal ranges for every lab test. These need real clinical/pharmacological expertise this project doesn't have, and wouldn't make the library more useful for its actual purpose — a test asserting an `ORU^R01` message parses correctly with an elevated `OBX` value doesn't need that value to match a peer-reviewed prevalence study.
+- **Not the same project as** [Synthea](https://synthetichealth.github.io/synthea/) (MITRE's synthetic patient population generator, built over years by a team with clinical/epidemiological expertise, for population-health research and HIE testing at scale) — a different mission and a much larger scope. `clinical-faker` optimizes for deterministic, seed-reproducible, zero-dependency test fixtures, not population health simulation.
+
 ## Seeded PRNG
 
 Two generators, used together:
@@ -57,7 +68,7 @@ interface Provider { identifier: Identifier; firstName: string; lastName: string
 
 interface Demographics {
   firstName: string; lastName: string;
-  dob: string; age: number;
+  dob: string; age: number;               // dob is derived from age relative to referenceDate, never sampled independently — see "Generation plausibility invariants"
   gender: 'male' | 'female' | 'other' | 'unknown';
   mrn: Identifier;
   address: Address;
@@ -71,14 +82,17 @@ interface Encounter {
   attendingProvider: Provider;                        // HL7 PV1-7; reused as admitting (PV1-17) and ordering (ORC-12/OBR-16) provider — a deliberate MVP simplification, not a distinct-roles model
 }
 
-interface ConditionEntity { code: string; display: string; onsetDate?: string }
+interface ConditionEntity {
+  code: string; display: string; onsetDate?: string;
+  rank: 'primary' | 'secondary';   // derived directly from the archetype's ConditionSpec.probability (1.0 = primary, <1.0 = comorbidity) — see "Generation plausibility invariants"
+}
 
 interface ObservationEntity {
   loincCode: string; display: string;
   value: number | string; unit?: string;
   effectiveDateTime: string;                          // HL7 OBX-14 / FHIR Observation.effectiveDateTime
   referenceRange?: { low: number; high: number };      // HL7 OBX-7 / FHIR Observation.referenceRange
-  abnormalFlag?: 'H' | 'L' | 'N';                      // HL7 OBX-8 / FHIR Observation.interpretation
+  abnormalFlag?: 'H' | 'L' | 'N';                      // HL7 OBX-8 / FHIR Observation.interpretation — always derived from value vs referenceRange, never independently generated
 }
 
 interface MedicationEntity { name: string; rxcui: string; sig: string }
@@ -90,6 +104,18 @@ interface AllergyEntity { substance: string; reaction?: string; criticality?: 'l
 - **Vitals are a hybrid model**: the generic `observations` array (LOINC code + value + unit) is the single source of truth, since it also has to represent lab values (glucose, HbA1c) that aren't vital signs. `.toJSON()` additionally projects well-known vital-sign LOINC codes (blood pressure, heart rate, temperature, respiratory rate, SpO2) into a friendly `vitals` sub-object for consumers who just want the common numbers without walking the generic array.
 - **Medications use a combined shape** — `{ name, rxcui, sig }`, e.g. `{ name: "Lisinopril 10mg", rxcui: "314076", sig: "Daily" }` — rather than separate drug-name/strength fields. This matches how RxNorm itself models a specific strength+form as one distinct concept/code, and stays additively extensible if a structured strength field is ever needed.
 - **Deliberately not modeled**, since nothing already committed requires it: Insurance/Coverage (`IN1` isn't in the segment list), Immunizations, Procedures, a full `Organization`/`Facility` resource (sending/receiving facility for `MSH-4`/`MSH-6` is message-level configuration passed to `.toHL7()`, not part of the patient), a separate `Order`/`ServiceRequest` entity (placer/filler order numbers can be generated deterministically at HL7-serialization time from the seed, without a first-class IR entity).
+
+## Generation plausibility invariants
+
+Independently-generated fields can contradict each other even when each one is individually valid — the same failure mode as the demographic-constraints gap above, just numeric/temporal instead of categorical. Three invariants close off the concrete cases found so far:
+
+- **`age`/`dob` have one source of truth.** `age` is sampled first (bounded by the archetype's `demographicConstraints` if present, otherwise a realistic default adult range), and `dob` is *derived* from it relative to `referenceDate` (with a randomized day/month for realism) — never sampled independently. This makes a patient whose stated age doesn't match their birthdate structurally impossible rather than just unlikely.
+- **`abnormalFlag` is computed, not generated.** It's a pure function of `value` compared against `referenceRange` at the moment the observation is created — never sampled or hardcoded per archetype. This guarantees a value can't be flagged abnormal while sitting inside its own reference range, or vice versa.
+- **Gaussian sampling is bounded.** Box-Muller produces a true bell curve with unbounded tails, so an unlucky draw can produce a physically impossible value (a negative blood pressure, a systolic reading in the 300s). `ObservationDistributionSpec` gains a `clamp: { min: number; max: number }` (physically-possible outer bounds — distinct from `referenceRange`, which is the *clinically normal* range used for the abnormal flag). The sampler resamples (bounded to a small number of attempts) rather than clamping outright, to avoid an artificial spike of values sitting exactly at the boundary; clamping is only the last-resort fallback if resampling doesn't converge.
+
+**Tracked but deferred to Phase 4's actual design pass** (implementation-level rather than IR-shape decisions):
+- Timestamp ordering across an encounter and everything generated within it — `ObservationEntity.effectiveDateTime` should fall within its `Encounter.period`, and `ConditionEntity.onsetDate` should relate sensibly to the encounter rather than being sampled independently. Likely needs `numericalSamplersNode` to gain an explicit DAG dependency on `encounterNode` (not yet declared) so it can read the encounter's timing.
+- MRN uniqueness is not guaranteed across different seeds (each patient's MRN derives independently from its own seed) — not urgent since nothing currently relies on cross-patient MRN uniqueness, but worth revisiting if generating large synthetic populations becomes a real use case.
 
 ## HL7 v2 serialization
 
@@ -105,12 +131,40 @@ A patient is generated from exactly one archetype (`GenerationOptions.archetype`
 
 **Future state, not built now**: true multi-archetype composition (`archetype` accepting an array, merging multiple archetypes' conditions/medications/observation distributions into one patient) is a real extension but adds real complexity — overlapping observation distributions between archetypes need a conflict-resolution rule, medication lists need de-duplication, etc. Deferred until cross-pollinated single-archetype comorbidity proves insufficient.
 
+**Invalid archetype handling**: `GenerationOptions.archetype` is typed as `keyof typeof ARCHETYPES | ArchetypeDefinition`, not loose `string` — a misspelled archetype name is a **TypeScript compile error** for any TS consumer, and a malformed `ArchetypeDefinition` object is also a compile error (its required fields are non-optional). This can't help a plain-JS consumer or a dynamically-computed string, though, so `createPatient()` also throws a runtime `UnknownArchetypeError` (extending a common `ClinicalFakerError` base in `src/core/errors.ts`, alongside the DAG's `CyclicDependencyError`/`UnresolvedDependencyError`) as the fallback for whatever the type system can't catch.
+
+**Demographic plausibility**: `ArchetypeDefinition` carries an optional `demographicConstraints?: { minAge?: number; maxAge?: number; compatibleGenders?: Gender[] }` — without it, nothing stops an archetype that only makes clinical sense for one sex or age range (e.g. a hypothetical pregnancy-related archetype) from being paired with demographics that make the resulting patient nonsensical. Two places use it: `demographicsNode` consults the *requested* archetype's constraints while generating age/gender (the requested archetype is known synchronously from `options` the moment generation starts, no DAG dependency needed to read it) — the constraint shapes demographics generation rather than demographics happening to violate it after the fact. A future auto-assignment path (picking a realistic archetype automatically rather than always naming one) filters candidates by already-resolved demographics instead, which works naturally since that step runs after `demographicsNode`. Neither MVP archetype (`AdultHypertension`, `Type2Diabetes`) needs a real constraint here, but the field exists from the start so adding a constrained archetype later doesn't require revisiting every existing one. A future demographic-override API that let a caller force an incompatible combination directly would throw `IncompatibleArchetypeError` (also extending `ClinicalFakerError`) rather than silently producing an implausible patient.
+
 ## Ontology tree-shaking
 
 Each ontology subset (ICD-10-CM, RxNorm, LOINC, UCUM) is a small literal-array module scoped by system and archetype (e.g. `src/ontology/icd10cm/hypertension.ts`). Archetypes import only the slices they need; codes shared across archetypes (e.g., common vital-sign LOINC codes) live in `common-*.ts` files. `package.json` declares `"sideEffects": false`, which is a hard requirement for this to actually tree-shake — no ontology or registry module may run side-effecting code at module scope.
 
-See `THIRD_PARTY_NOTICES.md` (added once the ontology licensing audit phase lands) for attribution requirements tied to the bundled LOINC/UCUM/RxNorm content.
+See `THIRD_PARTY_NOTICES.md` (added once the ontology licensing & data-accuracy audit phase lands) for attribution requirements tied to the bundled LOINC/UCUM/RxNorm content.
+
+### Ontology data-accuracy verification
+
+Hand-authoring a bounded subset of an ontology (a code plus its display text) carries real risk of typos or stale entries with nothing to catch them. Every bundled code gets checked against a free, no-registration, NLM/Regenstrief-backed authoritative source as part of the ontology licensing & data-accuracy audit phase, rather than trusted on faith:
+
+- **ICD-10-CM**: NLM Clinical Table Search Service (`clinicaltables.nlm.nih.gov/api/icd10cm`) — e.g. looking up `I10` returns `"Essential (primary) hypertension"`, confirmed live.
+- **RxNorm**: NLM's public RxNorm REST API (`rxnav.nlm.nih.gov`) — e.g. looking up RxCUI `314076` returns `"lisinopril 10 MG Oral Tablet"`, confirmed live.
+- **LOINC**: the same NLM Clinical Table Search Service (`clinicaltables.nlm.nih.gov/api/loinc_items`) — no LOINC.org account needed, unlike LOINC's own official search API.
+- **UCUM**: [`@lhncbc/ucum-lhc`](https://github.com/lhncbc/ucum-lhc) (npm) — a UCUM validation library from NLM's Lister Hill National Center, which co-maintains the UCUM spec alongside Regenstrief; can programmatically confirm our bundled unit strings are valid UCUM syntax. Its `LICENSE.md` (fetched and read directly, not assumed from the npm metadata's ambiguous "SEE LICENSE IN LICENSE.md") is a permissive BSD-style license — fine for devDependency use, and its LOINC/UCUM attribution language is a real candidate source for `THIRD_PARTY_NOTICES.md` when Phase 4.5 actually bundles LOINC/UCUM content.
+
+All four are free and require no API key or account — confirmed by querying each directly. This can run as a script/test against bundled ontology files whenever they change, independent of the licensing-text side of that phase.
+
+## Cross-validation with independent parsers
+
+Round-trip tests (serialize, then split by delimiter and confirm fields match the source data) only prove our HL7/FHIR builders are internally consistent with our own serializer — they can't catch a case where our output is subtly non-conformant to the actual spec, since the same misunderstanding would produce both the message and the test that checks it. To catch that class of bug, generated output gets fed into independent, unrelated implementations as part of the test suite for those phases:
+
+- **HL7 v2**: [`hl7v2`](https://github.com/panates/hl7v2) (npm, MIT) — chosen over Redox's `@redox-opensource/redox-hl7-v2` (also real and viable, verified via the npm registry and `gh api`, but plain JS and its last publish is older) because `hl7v2` is TypeScript-native (matches this project's stack) and actively maintained (pushed April 2026 at the time of checking), with parser, serializer, validator, server, and client support.
+- **FHIR R4**: the official HL7 FHIR reference validator, via `fhir-validator-wrapper` — maintained under the official `github.com/FHIR` org by Grahame Grieve, FHIR's technical lead. This is the actual reference implementation the FHIR community uses to certify conformance, not a third-party approximation.
+
+Both are **devDependencies only, used in tests** — never bundled into the published package, so this doesn't touch the zero-runtime-dependency policy. The FHIR validator wraps a Java tool, so its CI job needs a JVM (`actions/setup-java`), added when the FHIR compilation phase starts.
 
 ## `node:net` isolation
 
 Only `src/mllp/**` is permitted to import `node:net`. This keeps the root, `hl7`, and `fhir` entry points free of Node-specific APIs, which is what makes future edge/browser-runtime compatibility a non-issue rather than a rewrite.
+
+## Multi-entry build (verified)
+
+`bun build <entry1> <entry2> <entry3> --splitting` correctly deduplicates a module shared across multiple entry points into one chunk, with each entry importing from it rather than duplicating the code — confirmed with a throwaway 3-entry-point test against Bun 1.4.0 before relying on it. This is what lets `clinical-faker/mllp` import `clinical-faker/hl7`'s segment builders (Phase 5 depends on Phase 2) without either duplicating that code across bundles or forcing a different build tool.

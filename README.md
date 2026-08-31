@@ -4,6 +4,8 @@ Zero-dependency, TypeScript-first synthetic clinical data generator. Generates a
 
 > **Status**: early development. The API below reflects the target design and is not yet fully implemented — see `docs/implementation.md` for current progress.
 
+> **Not clinically validated.** This library generates synthetic data for software/integration testing. It is not validated for clinical education, research, or any use where medical accuracy matters — values are designed to be internally consistent and plausible at a glance, not epidemiologically or pharmacologically accurate. See `docs/architecture.md`'s "Scope & Non-Goals" for what "realistic" does and doesn't mean here.
+
 ## Use cases
 
 - **Testing an HL7 v2 interface engine or listener** — feed it generated `ADT^A01`/`A08`, `ORM^O01`, or `ORU^R01` messages instead of hand-writing brittle fixture strings or capturing real (PHI-bearing) traffic.
@@ -15,8 +17,13 @@ Zero-dependency, TypeScript-first synthetic clinical data generator. Generates a
 
 ## Install
 
+The package itself is plain ESM (Node >=18), so any package manager works, even though the project is developed with Bun.
+
 ```
 bun add clinical-faker
+npm install clinical-faker
+pnpm add clinical-faker
+yarn add clinical-faker
 ```
 
 ## Usage

@@ -21,7 +21,7 @@ Formatting and linting are handled by [Biome](https://biomejs.dev/) (`biome.json
 
 ## Workflow
 
-- **Never commit directly to `main`.** All work happens on a feature branch and lands via pull request.
+- **Never commit directly to `main`.** All work happens on a feature branch and lands via pull request. This is enforced by GitHub branch protection on `main` (pull request required, enforced for admins too, force-pushes and deletion disabled) — not just a documented convention.
 - **One unit of work per PR.** Keep PRs small and focused — a single phase's sub-step, not a whole phase, and never multiple unrelated changes bundled together.
 - **Conventional Commits** for every commit message (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, etc.).
 - **TDD**: write tests alongside or before the implementation they cover. A PR that adds behavior without tests is incomplete.
