@@ -16,10 +16,10 @@ Each phase ships as multiple small PRs (one unit of work each), per `AGENTS.md`'
 
 We go through the library one piece at a time — each phase below gets its own detailed design discussion (types, algorithms, file layout) when we actually start it, not before. Locking in speculative detail for a phase we haven't started tends to get revisited anyway once the prior phase's real constraints are known.
 
-- **HL7 v2 serialization** — segment/composite builders and message assembly (`ADT^A01`/`A08`, `ORM^O01`, `ORU^R01`), compiled from the canonical IR.
-- **FHIR R4 compilation** — resource builders and bundle assembly, compiled from the same canonical IR.
+- **HL7 v2 serialization** — segment/composite builders and message assembly (`ADT^A01`/`A08`, `ORM^O01`, `ORU^R01`), compiled from the canonical IR. Testing plan includes cross-validating generated messages against an independent parser, [`hl7v2`](https://github.com/panates/hl7v2) (npm, MIT, devDependency only — never shipped; TypeScript-native and actively maintained, chosen over Redox's `@redox-opensource/redox-hl7-v2` — see `docs/architecture.md`), rather than relying solely on round-trip tests against our own serializer.
+- **FHIR R4 compilation** — resource builders and bundle assembly, compiled from the same canonical IR. Testing plan includes cross-validating generated bundles against the official HL7 FHIR reference validator via `fhir-validator-wrapper` (devDependency only; requires a JVM in CI, added via `actions/setup-java` when this phase starts).
 - **Clinical archetypes + bundled ontology subsets** — `AdultHypertension`, `Type2Diabetes`, and the ICD-10-CM/RxNorm/LOINC/UCUM data they draw from.
-- **Ontology licensing & attribution audit** — verify current LOINC/UCUM/RxNorm/ICD-10-CM redistribution terms from authoritative sources once we know exactly what's bundled, and add `THIRD_PARTY_NOTICES.md`.
+- **Ontology licensing & data-accuracy audit** — verify current LOINC/UCUM/RxNorm/ICD-10-CM redistribution terms from authoritative sources once we know exactly what's bundled, and add `THIRD_PARTY_NOTICES.md`; also verify every bundled code+display pair against free, no-auth NLM/Regenstrief sources (NLM Clinical Table Search Service for ICD-10-CM/LOINC, the RxNorm REST API, `@lhncbc/ucum-lhc` for UCUM — see `docs/architecture.md`'s "Ontology data-accuracy verification").
 - **MLLP mock server** — a later, lower-priority phase (not next after archetypes); zero-dependency TCP mock with byte framing and auto-ACK. Design deferred until we get here.
 - **CD: automated npm publish** — release workflow, after the above are far enough along to have something worth publishing.
 
