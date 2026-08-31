@@ -5,6 +5,8 @@
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"moduleDetection": "force",
+		"allowImportingTsExtensions": true,
+		"types": ["bun"],
 		"verbatimModuleSyntax": true,
 		"isolatedModules": true,
 		"strict": true,
