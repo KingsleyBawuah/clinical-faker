@@ -12,6 +12,17 @@ Everything starts from a single canonical in-memory patient model (`PatientGraph
 
 Because all three are compiled from the same `PatientGraph`, and every entity gets exactly one deterministically-generated ID, the same seed produces cross-referentially consistent output in every format.
 
+## Scope & Non-Goals
+
+The target audience is software engineers testing HL7/FHIR-speaking systems — not clinicians, researchers, or students. Neither this library's design nor the people maintaining it should be treated as a source of clinical accuracy, so the bar for "realistic" is deliberately capped by what the actual use case needs, not by how medically precise the data could theoretically be made:
+
+- **In scope**:
+  - **Structural validity** — well-formed HL7 v2 / FHIR R4, correct types, referential integrity. Non-negotiable; it's the entire reason this library exists instead of hand-written fixture JSON.
+  - **Internal self-consistency** — no contradictions within one generated patient: age matches DOB, gender is compatible with the archetype, an abnormal flag matches its value against its own reference range, nothing physically impossible (see "Generation plausibility invariants" and "Demographic plausibility" below).
+  - **Surface clinical plausibility** — values fall in realistic ranges for the stated condition, and ontology codes/medications are real and appropriate for it. The bar: a knowledgeable reviewer glancing at the output says "plausible hypertensive patient," not "let me audit this against clinical guidelines."
+- **Explicitly out of scope**: population-representative statistical distributions calibrated against real epidemiological studies, drug-drug interaction checking, dose adjustment for renal/hepatic function, detailed multi-year disease-progression pathophysiology, age/sex-specific normal ranges for every lab test. These need real clinical/pharmacological expertise this project doesn't have, and wouldn't make the library more useful for its actual purpose — a test asserting an `ORU^R01` message parses correctly with an elevated `OBX` value doesn't need that value to match a peer-reviewed prevalence study.
+- **Not the same project as** [Synthea](https://synthetichealth.github.io/synthea/) (MITRE's synthetic patient population generator, built over years by a team with clinical/epidemiological expertise, for population-health research and HIE testing at scale) — a different mission and a much larger scope. `clinical-faker` optimizes for deterministic, seed-reproducible, zero-dependency test fixtures, not population health simulation.
+
 ## Seeded PRNG
 
 Two generators, used together:
