@@ -15,8 +15,13 @@ Zero-dependency, TypeScript-first synthetic clinical data generator. Generates a
 
 ## Install
 
+The package itself is plain ESM (Node >=18), so any package manager works, even though the project is developed with Bun.
+
 ```
 bun add clinical-faker
+npm install clinical-faker
+pnpm add clinical-faker
+yarn add clinical-faker
 ```
 
 ## Usage
