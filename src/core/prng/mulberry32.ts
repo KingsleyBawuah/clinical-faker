@@ -24,6 +24,11 @@ export function createMulberry32(seed: number): PRNG {
 	}
 
 	function nextInt(min: number, max: number): number {
+		if (min > max) {
+			throw new RangeError(
+				`nextInt: min (${min}) must not be greater than max (${max})`,
+			);
+		}
 		return Math.floor(min + next() * (max - min + 1));
 	}
 

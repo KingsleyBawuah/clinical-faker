@@ -50,6 +50,11 @@ describe("createMulberry32", () => {
 		expect(seen).toEqual(new Set([1, 2, 3]));
 	});
 
+	test("nextInt(min, max) throws a RangeError when min > max, instead of returning nonsense", () => {
+		const prng = createMulberry32(1);
+		expect(() => prng.nextInt(10, 5)).toThrow(RangeError);
+	});
+
 	test("nextBool defaults to roughly 50/50 over many draws", () => {
 		const prng = createMulberry32(55);
 		let trueCount = 0;
