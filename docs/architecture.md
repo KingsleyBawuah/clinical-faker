@@ -57,7 +57,7 @@ interface Provider { identifier: Identifier; firstName: string; lastName: string
 
 interface Demographics {
   firstName: string; lastName: string;
-  dob: string; age: number;
+  dob: string; age: number;               // dob is derived from age relative to referenceDate, never sampled independently — see "Generation plausibility invariants"
   gender: 'male' | 'female' | 'other' | 'unknown';
   mrn: Identifier;
   address: Address;
@@ -71,14 +71,17 @@ interface Encounter {
   attendingProvider: Provider;                        // HL7 PV1-7; reused as admitting (PV1-17) and ordering (ORC-12/OBR-16) provider — a deliberate MVP simplification, not a distinct-roles model
 }
 
-interface ConditionEntity { code: string; display: string; onsetDate?: string }
+interface ConditionEntity {
+  code: string; display: string; onsetDate?: string;
+  rank: 'primary' | 'secondary';   // derived directly from the archetype's ConditionSpec.probability (1.0 = primary, <1.0 = comorbidity) — see "Generation plausibility invariants"
+}
 
 interface ObservationEntity {
   loincCode: string; display: string;
   value: number | string; unit?: string;
   effectiveDateTime: string;                          // HL7 OBX-14 / FHIR Observation.effectiveDateTime
   referenceRange?: { low: number; high: number };      // HL7 OBX-7 / FHIR Observation.referenceRange
-  abnormalFlag?: 'H' | 'L' | 'N';                      // HL7 OBX-8 / FHIR Observation.interpretation
+  abnormalFlag?: 'H' | 'L' | 'N';                      // HL7 OBX-8 / FHIR Observation.interpretation — always derived from value vs referenceRange, never independently generated
 }
 
 interface MedicationEntity { name: string; rxcui: string; sig: string }
@@ -90,6 +93,18 @@ interface AllergyEntity { substance: string; reaction?: string; criticality?: 'l
 - **Vitals are a hybrid model**: the generic `observations` array (LOINC code + value + unit) is the single source of truth, since it also has to represent lab values (glucose, HbA1c) that aren't vital signs. `.toJSON()` additionally projects well-known vital-sign LOINC codes (blood pressure, heart rate, temperature, respiratory rate, SpO2) into a friendly `vitals` sub-object for consumers who just want the common numbers without walking the generic array.
 - **Medications use a combined shape** — `{ name, rxcui, sig }`, e.g. `{ name: "Lisinopril 10mg", rxcui: "314076", sig: "Daily" }` — rather than separate drug-name/strength fields. This matches how RxNorm itself models a specific strength+form as one distinct concept/code, and stays additively extensible if a structured strength field is ever needed.
 - **Deliberately not modeled**, since nothing already committed requires it: Insurance/Coverage (`IN1` isn't in the segment list), Immunizations, Procedures, a full `Organization`/`Facility` resource (sending/receiving facility for `MSH-4`/`MSH-6` is message-level configuration passed to `.toHL7()`, not part of the patient), a separate `Order`/`ServiceRequest` entity (placer/filler order numbers can be generated deterministically at HL7-serialization time from the seed, without a first-class IR entity).
+
+## Generation plausibility invariants
+
+Independently-generated fields can contradict each other even when each one is individually valid — the same failure mode as the demographic-constraints gap above, just numeric/temporal instead of categorical. Three invariants close off the concrete cases found so far:
+
+- **`age`/`dob` have one source of truth.** `age` is sampled first (bounded by the archetype's `demographicConstraints` if present, otherwise a realistic default adult range), and `dob` is *derived* from it relative to `referenceDate` (with a randomized day/month for realism) — never sampled independently. This makes a patient whose stated age doesn't match their birthdate structurally impossible rather than just unlikely.
+- **`abnormalFlag` is computed, not generated.** It's a pure function of `value` compared against `referenceRange` at the moment the observation is created — never sampled or hardcoded per archetype. This guarantees a value can't be flagged abnormal while sitting inside its own reference range, or vice versa.
+- **Gaussian sampling is bounded.** Box-Muller produces a true bell curve with unbounded tails, so an unlucky draw can produce a physically impossible value (a negative blood pressure, a systolic reading in the 300s). `ObservationDistributionSpec` gains a `clamp: { min: number; max: number }` (physically-possible outer bounds — distinct from `referenceRange`, which is the *clinically normal* range used for the abnormal flag). The sampler resamples (bounded to a small number of attempts) rather than clamping outright, to avoid an artificial spike of values sitting exactly at the boundary; clamping is only the last-resort fallback if resampling doesn't converge.
+
+**Tracked but deferred to Phase 4's actual design pass** (implementation-level rather than IR-shape decisions):
+- Timestamp ordering across an encounter and everything generated within it — `ObservationEntity.effectiveDateTime` should fall within its `Encounter.period`, and `ConditionEntity.onsetDate` should relate sensibly to the encounter rather than being sampled independently. Likely needs `numericalSamplersNode` to gain an explicit DAG dependency on `encounterNode` (not yet declared) so it can read the encounter's timing.
+- MRN uniqueness is not guaranteed across different seeds (each patient's MRN derives independently from its own seed) — not urgent since nothing currently relies on cross-patient MRN uniqueness, but worth revisiting if generating large synthetic populations becomes a real use case.
 
 ## HL7 v2 serialization
 
@@ -106,6 +121,8 @@ A patient is generated from exactly one archetype (`GenerationOptions.archetype`
 **Future state, not built now**: true multi-archetype composition (`archetype` accepting an array, merging multiple archetypes' conditions/medications/observation distributions into one patient) is a real extension but adds real complexity — overlapping observation distributions between archetypes need a conflict-resolution rule, medication lists need de-duplication, etc. Deferred until cross-pollinated single-archetype comorbidity proves insufficient.
 
 **Invalid archetype handling**: `GenerationOptions.archetype` is typed as `keyof typeof ARCHETYPES | ArchetypeDefinition`, not loose `string` — a misspelled archetype name is a **TypeScript compile error** for any TS consumer, and a malformed `ArchetypeDefinition` object is also a compile error (its required fields are non-optional). This can't help a plain-JS consumer or a dynamically-computed string, though, so `createPatient()` also throws a runtime `UnknownArchetypeError` (extending a common `ClinicalFakerError` base in `src/core/errors.ts`, alongside the DAG's `CyclicDependencyError`/`UnresolvedDependencyError`) as the fallback for whatever the type system can't catch.
+
+**Demographic plausibility**: `ArchetypeDefinition` carries an optional `demographicConstraints?: { minAge?: number; maxAge?: number; compatibleGenders?: Gender[] }` — without it, nothing stops an archetype that only makes clinical sense for one sex or age range (e.g. a hypothetical pregnancy-related archetype) from being paired with demographics that make the resulting patient nonsensical. Two places use it: `demographicsNode` consults the *requested* archetype's constraints while generating age/gender (the requested archetype is known synchronously from `options` the moment generation starts, no DAG dependency needed to read it) — the constraint shapes demographics generation rather than demographics happening to violate it after the fact. A future auto-assignment path (picking a realistic archetype automatically rather than always naming one) filters candidates by already-resolved demographics instead, which works naturally since that step runs after `demographicsNode`. Neither MVP archetype (`AdultHypertension`, `Type2Diabetes`) needs a real constraint here, but the field exists from the start so adding a constrained archetype later doesn't require revisiting every existing one. A future demographic-override API that let a caller force an incompatible combination directly would throw `IncompatibleArchetypeError` (also extending `ClinicalFakerError`) rather than silently producing an implausible patient.
 
 ## Ontology tree-shaking
 
