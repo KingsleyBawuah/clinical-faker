@@ -105,6 +105,8 @@ A patient is generated from exactly one archetype (`GenerationOptions.archetype`
 
 **Future state, not built now**: true multi-archetype composition (`archetype` accepting an array, merging multiple archetypes' conditions/medications/observation distributions into one patient) is a real extension but adds real complexity — overlapping observation distributions between archetypes need a conflict-resolution rule, medication lists need de-duplication, etc. Deferred until cross-pollinated single-archetype comorbidity proves insufficient.
 
+**Invalid archetype handling**: `GenerationOptions.archetype` is typed as `keyof typeof ARCHETYPES | ArchetypeDefinition`, not loose `string` — a misspelled archetype name is a **TypeScript compile error** for any TS consumer, and a malformed `ArchetypeDefinition` object is also a compile error (its required fields are non-optional). This can't help a plain-JS consumer or a dynamically-computed string, though, so `createPatient()` also throws a runtime `UnknownArchetypeError` (extending a common `ClinicalFakerError` base in `src/core/errors.ts`, alongside the DAG's `CyclicDependencyError`/`UnresolvedDependencyError`) as the fallback for whatever the type system can't catch.
+
 ## Ontology tree-shaking
 
 Each ontology subset (ICD-10-CM, RxNorm, LOINC, UCUM) is a small literal-array module scoped by system and archetype (e.g. `src/ontology/icd10cm/hypertension.ts`). Archetypes import only the slices they need; codes shared across archetypes (e.g., common vital-sign LOINC codes) live in `common-*.ts` files. `package.json` declares `"sideEffects": false`, which is a hard requirement for this to actually tree-shake — no ontology or registry module may run side-effecting code at module scope.
@@ -118,7 +120,7 @@ Hand-authoring a bounded subset of an ontology (a code plus its display text) ca
 - **ICD-10-CM**: NLM Clinical Table Search Service (`clinicaltables.nlm.nih.gov/api/icd10cm`) — e.g. looking up `I10` returns `"Essential (primary) hypertension"`, confirmed live.
 - **RxNorm**: NLM's public RxNorm REST API (`rxnav.nlm.nih.gov`) — e.g. looking up RxCUI `314076` returns `"lisinopril 10 MG Oral Tablet"`, confirmed live.
 - **LOINC**: the same NLM Clinical Table Search Service (`clinicaltables.nlm.nih.gov/api/loinc_items`) — no LOINC.org account needed, unlike LOINC's own official search API.
-- **UCUM**: [`@lhncbc/ucum-lhc`](https://github.com/lhncbc/ucum-lhc) (npm) — a UCUM validation library from NLM's Lister Hill National Center, which co-maintains the UCUM spec alongside Regenstrief; can programmatically confirm our bundled unit strings are valid UCUM syntax.
+- **UCUM**: [`@lhncbc/ucum-lhc`](https://github.com/lhncbc/ucum-lhc) (npm) — a UCUM validation library from NLM's Lister Hill National Center, which co-maintains the UCUM spec alongside Regenstrief; can programmatically confirm our bundled unit strings are valid UCUM syntax. Its `LICENSE.md` (fetched and read directly, not assumed from the npm metadata's ambiguous "SEE LICENSE IN LICENSE.md") is a permissive BSD-style license — fine for devDependency use, and its LOINC/UCUM attribution language is a real candidate source for `THIRD_PARTY_NOTICES.md` when Phase 4.5 actually bundles LOINC/UCUM content.
 
 All four are free and require no API key or account — confirmed by querying each directly. This can run as a script/test against bundled ontology files whenever they change, independent of the licensing-text side of that phase.
 
@@ -134,3 +136,7 @@ Both are **devDependencies only, used in tests** — never bundled into the publ
 ## `node:net` isolation
 
 Only `src/mllp/**` is permitted to import `node:net`. This keeps the root, `hl7`, and `fhir` entry points free of Node-specific APIs, which is what makes future edge/browser-runtime compatibility a non-issue rather than a rewrite.
+
+## Multi-entry build (verified)
+
+`bun build <entry1> <entry2> <entry3> --splitting` correctly deduplicates a module shared across multiple entry points into one chunk, with each entry importing from it rather than duplicating the code — confirmed with a throwaway 3-entry-point test against Bun 1.4.0 before relying on it. This is what lets `clinical-faker/mllp` import `clinical-faker/hl7`'s segment builders (Phase 5 depends on Phase 2) without either duplicating that code across bundles or forcing a different build tool.
