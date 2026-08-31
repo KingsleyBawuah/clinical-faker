@@ -29,6 +29,8 @@ Every generation node gets its own Mulberry32 stream this way, and can further `
 
 Generation steps are declared as nodes with an `id` and a `dependsOn` list, and resolved via a generic topological sort (Kahn's algorithm) — not a hardcoded pipeline. The clinically-meaningful resolution order (Seed → Demographics → Archetype Assignment → Conditions → Numerical Samplers → Medications) emerges from each node's declared dependencies rather than being hand-coded as a sequence. This is what lets new archetypes, and eventually a custom archetype builder, plug in or override nodes without touching the resolver itself.
 
+**`encounterNode`**: the original spec's resolution order has no explicit encounter step, but `Encounter` (class, period, location, attending provider) is part of the IR and needs something to produce it. `encounterNode` depends only on `demographicsNode` (an encounter's timing/location/provider doesn't depend on the patient's archetype), so it resolves in parallel with `archetypeAssignmentNode` — exactly the kind of simultaneous-readiness case the lexical tie-break rule above exists for. MVP always produces exactly one `Encounter`; the array shape exists for the future temporal-progression roadmap item (multiple visits over time), not used yet.
+
 **Tie-breaking**: when more than one node becomes ready (in-degree 0) at the same step, the resolver processes them in ascending lexical order by node `id`. A correct array/queue-based Kahn's implementation is already deterministic on any spec-compliant JS engine (Array/Map/Set iteration order is spec-guaranteed), but making the tie-break an explicit, documented contract removes any ambiguity for future maintainers rather than relying on it being an incidental property of the current implementation.
 
 ## Canonical patient model (`.toJSON()`)
@@ -96,6 +98,12 @@ Messages are built as nested arrays (segment → field → component → subcomp
 ## FHIR R4 referential integrity
 
 Each entity (Patient, Encounter, Condition, Observation, MedicationRequest) is assigned exactly one deterministic ID at DAG-resolution time via `generateSeededUUID(prng)`, stored once in the canonical IR, and reused verbatim as `urn:uuid:<id>` for both a bundle entry's `fullUrl` and every `Reference` that points at it. "Validated" FHIR output means required fields are non-optional TypeScript parameters on the builder functions (malformed shapes are compile-time errors) plus a handful of cheap structural assertions — not a full StructureDefinition/JSON-Schema runtime validator, in keeping with the zero-runtime-schema-footprint goal.
+
+## Archetype comorbidity model
+
+A patient is generated from exactly one archetype (`GenerationOptions.archetype`) — there's no multi-archetype composition. That doesn't mean single-condition patients, though: an archetype's own `conditions: ConditionSpec[]` already supports probabilistic comorbidities within itself (e.g. `Type2Diabetes` producing `E78.5` hyperlipidemia at some probability less than 1.0). Real-world cross-category comorbidity — hypertension and type 2 diabetes are commonly comorbid together — is modeled the same way: an archetype's own definition can include a probabilistic condition/medication entry that happens to belong to another archetype's usual category (e.g. `Type2Diabetes` including a probabilistic `I10` entry), using the mechanism that already exists rather than needing new architecture.
+
+**Future state, not built now**: true multi-archetype composition (`archetype` accepting an array, merging multiple archetypes' conditions/medications/observation distributions into one patient) is a real extension but adds real complexity — overlapping observation distributions between archetypes need a conflict-resolution rule, medication lists need de-duplication, etc. Deferred until cross-pollinated single-archetype comorbidity proves insufficient.
 
 ## Ontology tree-shaking
 

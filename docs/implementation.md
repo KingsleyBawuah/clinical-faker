@@ -10,7 +10,7 @@ Each phase ships as multiple small PRs (one unit of work each), per `AGENTS.md`'
 - [ ] **PR 1b — CI workflow**: `.github/workflows/ci.yml` (install, typecheck, lint, test, build on every PR). Moved ahead of any source code so nothing merges without CI active, per `AGENTS.md`'s "every PR runs CI" rule.
 - [ ] **PR 1c — Seeded PRNG**: `src/core/prng/**` (SplitMix32, Mulberry32, Box-Muller gaussian, seeded UUID). Must implement: unsigned 32-bit normalization (`>>> 0`) throughout, and a stateless `gaussian()` (no cached Box-Muller spare value across calls). + tests.
 - [ ] **PR 1d — DAG resolver**: `src/core/dag/**`, `src/core/errors.ts` (topological sort with deterministic ascending-lexical-id tie-break, cycle/unresolved-dependency detection) + tests.
-- [ ] **PR 1e — Canonical IR & generator wiring**: `src/entities/types.ts` (full entity set: `PatientGraph`, `Demographics`, `Identifier`, `Address`, `Provider`, `Encounter`, `ConditionEntity`, `ObservationEntity`, `MedicationEntity`, `AllergyEntity` — see `docs/architecture.md`), `src/entities/vitalsProjection.ts`, `src/entities/exporters/toJSON.ts`, `src/nodes/{seedNode,demographicsNode}.ts`, `src/generator.ts`, `src/index.ts` + tests.
+- [ ] **PR 1e — Canonical IR & generator wiring**: `src/entities/types.ts` (full entity set: `PatientGraph`, `Demographics`, `Identifier`, `Address`, `Provider`, `Encounter`, `ConditionEntity`, `ObservationEntity`, `MedicationEntity`, `AllergyEntity` — see `docs/architecture.md`), `src/entities/vitalsProjection.ts`, `src/entities/exporters/toJSON.ts`, `src/nodes/{seedNode,demographicsNode,encounterNode}.ts`, `src/generator.ts`, `src/index.ts` + tests. `encounterNode` depends only on `demographicsNode` and produces exactly one `Encounter` for MVP (see `docs/architecture.md`'s DAG resolution engine section).
 
 ## Later phases (not yet designed in detail)
 
@@ -25,4 +25,4 @@ We go through the library one piece at a time — each phase below gets its own 
 
 ## Not yet started (roadmap, tracked separately)
 
-Temporal progression, US Core/USCDI profiles, Custom Archetype Builder API, FHIR REST mock server, SMART on FHIR v2 auth mocking, edge/browser runtime compatibility.
+Temporal progression, US Core/USCDI profiles, Custom Archetype Builder API, FHIR REST mock server, SMART on FHIR v2 auth mocking, edge/browser runtime compatibility, multi-archetype composition (a patient generated from more than one archetype at once — see `docs/architecture.md`'s "Archetype comorbidity model"; MVP handles cross-category comorbidity by cross-pollinating an archetype's own condition list instead).
