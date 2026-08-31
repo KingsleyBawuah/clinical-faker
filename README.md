@@ -92,6 +92,10 @@ See `docs/architecture.md` for the canonical patient model, the seeded PRNG/DAG 
 
 This package bundles small subsets of ICD-10-CM, RxNorm, LOINC, and UCUM codes. See `THIRD_PARTY_NOTICES.md` (added once the ontology licensing audit lands) for attribution requirements that apply to anyone redistributing this package's output.
 
+## Changelog
+
+See `CHANGELOG.md` for release history, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
 ## License
 
 MIT — see `LICENSE`.
