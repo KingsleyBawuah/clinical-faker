@@ -27,11 +27,12 @@ Formatting and linting are handled by [Biome](https://biomejs.dev/) (`biome.json
 - **TDD**: write tests alongside or before the implementation they cover. A PR that adds behavior without tests is incomplete.
 - **100% type coverage**: no `any`, no unchecked type escapes (`as unknown as T`, non-null assertions used to silence real gaps). `bun run typecheck` must pass with the repo's strict `tsconfig.json` settings.
 - Update `docs/implementation.md` as part of the PR when a phase or sub-step is completed or when scope changes.
+- **Update `CHANGELOG.md`** in the same PR for any user-facing change — a new feature, a bug fix, a breaking change, or a deprecation — filed under `## [Unreleased]` in the appropriate [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) category (`Added`/`Changed`/`Deprecated`/`Removed`/`Fixed`/`Security`). Docs-only changes, CI/tooling changes, and internal refactors with no behavior change don't need an entry. At release time, `[Unreleased]` becomes the new version section.
 - **Don't commit before outlining the changes for review.** An agent working in this repo must summarize what a commit will contain — files touched, and why — and let the user review it before running `git commit`. This applies even when the user has already asked for the underlying work to be done; committing is a separate, explicitly-reviewed step.
 
 ## CI/CD
 
-- Every PR runs CI: `bun install`, `bun run typecheck`, `bun run ci:lint` (Biome), `bun test`, `bun run build`. All must pass before merge.
+- Every PR runs CI (`.github/workflows/ci.yml`), as seven independent jobs: `lint` (Biome), `typecheck`, `type-coverage` (enforces the 100%-type-coverage rule above), `test`, `build` (+ a plain-Node smoke-test of the built output), `license-check` (fails on copyleft devDependency licenses), and `commitlint` (enforces Conventional Commits, PRs only). `lint`, `type-coverage`, `license-check`, and `commitlint` are required to pass before merge; `typecheck`/`test`/`build` will be added as required once real source code exists.
 - Publishing to npm is automated, not manual: a tagged release (or merge to `main` with a version bump, depending on how the workflow is finalized) triggers a GitHub Actions workflow that builds and runs `npm publish` (or `bun publish`, whichever proves more reliable for this package's exports map) using an `NPM_TOKEN` repository secret.
 - The actual `.github/workflows/*.yml` files land as their own dedicated PR(s) once there's a meaningful build to verify — see `docs/implementation.md` for tracking.
 
