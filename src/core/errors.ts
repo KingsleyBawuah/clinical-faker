@@ -117,3 +117,31 @@ export class EmptyHL7MessageError extends ClinicalFakerError {
 		);
 	}
 }
+
+/**
+ * Thrown by `assertExhaustive` when a mapping function's switch doesn't
+ * cover a value at runtime. Should be unreachable for any TypeScript-checked
+ * caller, since the parameter type is `never` — this is a backstop for a
+ * bypass (an `as` assertion, or an untyped plain-JS caller) rather than
+ * something a normal caller can trigger.
+ */
+export class UnmappedHL7ValueError extends ClinicalFakerError {
+	readonly value: unknown;
+
+	constructor(value: unknown) {
+		super(`No HL7 v2 mapping defined for value: ${JSON.stringify(value)}`);
+		this.value = value;
+	}
+}
+
+/** Thrown when an `HL7ExportOptions.messageControlId` override exceeds `MSH-10`'s confirmed 20-character `ST`-datatype maximum. */
+export class InvalidMessageControlIdError extends ClinicalFakerError {
+	readonly messageControlId: string;
+
+	constructor(messageControlId: string) {
+		super(
+			`MSH-10 (Message Control ID) must be at most 20 characters, got ${messageControlId.length}: "${messageControlId}"`,
+		);
+		this.messageControlId = messageControlId;
+	}
+}
