@@ -32,7 +32,7 @@ Formatting and linting are handled by [Biome](https://biomejs.dev/) (`biome.json
 
 ## CI/CD
 
-- Every PR runs CI (`.github/workflows/ci.yml`), as seven independent jobs: `lint` (Biome), `typecheck`, `type-coverage` (enforces the 100%-type-coverage rule above), `test`, `build` (+ a plain-Node smoke-test of the built output), `license-check` (fails on copyleft devDependency licenses), and `commitlint` (enforces Conventional Commits, PRs only). `lint`, `type-coverage`, `license-check`, and `commitlint` are required to pass before merge; `typecheck`/`test`/`build` will be added as required once real source code exists.
+- Every PR runs CI (`.github/workflows/ci.yml`), as seven independent jobs: `lint` (Biome), `typecheck`, `type-coverage` (enforces the 100%-type-coverage rule above), `test`, `build` (+ a plain-Node smoke-test of the built output), `license-check` (fails on copyleft devDependency licenses), and `commitlint` (enforces Conventional Commits, PRs only). All seven are required to pass before merge.
 - Publishing to npm is automated, not manual: a tagged release (or merge to `main` with a version bump, depending on how the workflow is finalized) triggers a GitHub Actions workflow that builds and runs `npm publish` (or `bun publish`, whichever proves more reliable for this package's exports map) using an `NPM_TOKEN` repository secret.
 - The actual `.github/workflows/*.yml` files land as their own dedicated PR(s) once there's a meaningful build to verify — see `docs/implementation.md` for tracking.
 
