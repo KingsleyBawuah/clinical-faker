@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Seeded PRNG core (`src/core/prng`): SplitMix32 seed derivation, Mulberry32 generation streams with deterministic `fork()`, stateless Box-Muller Gaussian sampling, and seeded RFC 4122 v4-shaped UUIDs — the determinism foundation the rest of the generator builds on. Not yet exposed via a public entry point.
 - DAG resolver (`src/core/dag`): generic Kahn's-algorithm topological sort with a deterministic ascending-lexical-id tie-break, plus a `ClinicalFakerError` base class and `CyclicDependencyError`/`UnresolvedDependencyError`/`DuplicateNodeIdError`/`DependencyNotReadyError`. Not yet exposed via a public entry point.
 - `createPatient(options?)`: generates a deterministic synthetic patient (demographics, one encounter) and returns a `Patient` with a `.toJSON()` export. First public entry point — `clinical-faker`'s root import now works end to end.
+- HL7 v2 encoding core (`src/hl7`): `serializeMessage()`, a generic nested-array (segment → field → repetition → component → subcomponent) walker producing HL7 v2.5.1 wire text, with `MSH` special-cased for its field-separator/encoding-characters fields; `encodeHL7Text()` for delimiter escaping. Not yet exposed via a public entry point.
 
 ### Fixed
 
