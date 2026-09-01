@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cx, msg, xad, xcn, xpn } from "../../src/hl7/composites.ts";
+import { ce, cx, msg, xad, xcn, xpn } from "../../src/hl7/composites.ts";
 import { serializeMessage } from "../../src/hl7/serializeMessage.ts";
 import type { HL7Message } from "../../src/hl7/types.ts";
 import { STANDARD_HL7_DELIMITERS } from "../../src/hl7/types.ts";
@@ -68,6 +68,20 @@ describe("msg", () => {
 		// as three repetitions (~) instead of three components (^) of MSH-9
 		expect(serializeField(msg("ADT", "A01", "ADT_A01"))).toBe(
 			`ADT${D.component}A01${D.component}ADT_A01`,
+		);
+	});
+});
+
+describe("ce", () => {
+	test("serializes as identifier ^ text ^ coding system", () => {
+		expect(serializeField(ce("I10", "Essential hypertension", "I10"))).toBe(
+			`I10${D.component}Essential hypertension${D.component}I10`,
+		);
+	});
+
+	test("leaves the identifier component empty for an uncoded value", () => {
+		expect(serializeField(ce("", "Peanuts", ""))).toBe(
+			`${D.component}Peanuts${D.component}`,
 		);
 	});
 });

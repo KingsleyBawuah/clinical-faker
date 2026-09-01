@@ -80,3 +80,20 @@ export function msg(
 ): HL7Value {
 	return singleRepetition([code, triggerEvent, structure]);
 }
+
+/**
+ * CE (Coded with Exceptions) — identifier ^ text ^ name of coding system.
+ * Only the first three of CE's six components: this library doesn't model
+ * an alternate code/text/coding-system for any coded field. Component
+ * order confirmed against HL7 v2.5.1. An empty `identifier` is a valid
+ * uncoded value per the spec (e.g. a free-text allergen with no RxNorm/
+ * SNOMED code available in the IR) — leave it empty rather than omit the
+ * field or invent a code.
+ */
+export function ce(
+	identifier: string,
+	text: string,
+	codingSystem: string,
+): HL7Value {
+	return singleRepetition([identifier, text, codingSystem]);
+}
