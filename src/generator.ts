@@ -7,6 +7,8 @@ import type {
 	Encounter,
 	PatientGraph,
 } from "./entities/types.ts";
+import type { HL7EventType, HL7ExportOptions } from "./hl7/exportOptions.ts";
+import { toHL7 } from "./hl7/toHL7.ts";
 import { createDemographicsNode } from "./nodes/demographicsNode.ts";
 import { createEncounterNode } from "./nodes/encounterNode.ts";
 import { createSeedNode, type SeedResult } from "./nodes/seedNode.ts";
@@ -19,6 +21,7 @@ export interface GenerationOptions {
 
 export interface Patient extends PatientGraph {
 	toJSON(): PatientJSON;
+	toHL7(eventType: HL7EventType, options?: HL7ExportOptions): string;
 }
 
 function generateRandomSeed(): number {
@@ -113,6 +116,9 @@ export function createPatient(options: GenerationOptions = {}): Patient {
 		...graph,
 		toJSON(): PatientJSON {
 			return toJSON(this);
+		},
+		toHL7(eventType: HL7EventType, options?: HL7ExportOptions): string {
+			return toHL7(this, eventType, options);
 		},
 	};
 }
