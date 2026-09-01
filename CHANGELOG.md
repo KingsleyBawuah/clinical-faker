@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Seeded PRNG core (`src/core/prng`): SplitMix32 seed derivation, Mulberry32 generation streams with deterministic `fork()`, stateless Box-Muller Gaussian sampling, and seeded RFC 4122 v4-shaped UUIDs — the determinism foundation the rest of the generator builds on. Not yet exposed via a public entry point.
 - DAG resolver (`src/core/dag`): generic Kahn's-algorithm topological sort with a deterministic ascending-lexical-id tie-break, plus a `ClinicalFakerError` base class and `CyclicDependencyError`/`UnresolvedDependencyError`/`DuplicateNodeIdError`/`DependencyNotReadyError`. Not yet exposed via a public entry point.
 - `createPatient(options?)`: generates a deterministic synthetic patient (demographics, one encounter) and returns a `Patient` with a `.toJSON()` export. First public entry point — `clinical-faker`'s root import now works end to end.
+- HL7 v2 encoding core (`src/hl7`): `serializeMessage()`, a generic nested-array (segment → field → repetition → component → subcomponent) walker producing HL7 v2.5.1 wire text, with `MSH` special-cased for its field-separator/encoding-characters fields; `encodeHL7Text()` for delimiter escaping. Not yet exposed via a public entry point.
 
 ### Fixed
 
@@ -25,3 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated provider NPIs failed real-world Luhn checksum validation ~90% of the time; they now carry a correctly-computed NPI check digit.
 - Inpatient encounters could last as little as 15 minutes; inpatient stays now have a 12-hour minimum duration.
 - `projectVitals` picked whichever same-LOINC-code observation appeared last in the array rather than the one with the latest `effectiveDateTime`.
+- `InvalidSeedError`/`InvalidReferenceDateError` (and the new `HL7EncodingDepthError`/`MalformedMSHSegmentError`/`EmptyHL7MessageError`) were never re-exported from the package root, making them impossible for a consumer to `import` and catch by type even though `createPatient()` already threw them; all `ClinicalFakerError` subclasses are now exported from `clinical-faker`.
+- `encodeHL7Text` didn't escape an embedded `\r` or `\n` in a leaf value; either would have silently fragmented a segment into two once `serializeMessage()` joined on the real segment terminator. Now escaped via the standard `\X0D\`/`\X0A\` hex-escape sequences.
+- `serializeMessage([])` silently produced a bare `"\r"` instead of surfacing that a zero-segment message is invalid; now throws `EmptyHL7MessageError`.

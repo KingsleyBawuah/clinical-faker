@@ -76,3 +76,44 @@ export class InvalidReferenceDateError extends ClinicalFakerError {
 		this.referenceDate = referenceDate;
 	}
 }
+
+/**
+ * Thrown when an `HL7Value` nests deeper than HL7 v2 actually supports below
+ * a field (repetition -> component -> subcomponent, 3 levels). A 4th array
+ * level has no delimiter left to join with, which means the value was built
+ * incorrectly rather than describing a real HL7 v2 structure.
+ */
+export class HL7EncodingDepthError extends ClinicalFakerError {
+	readonly depth: number;
+
+	constructor(depth: number) {
+		super(
+			`HL7 v2 field values can nest at most 3 levels below a field (repetition, component, subcomponent) — got depth ${depth}`,
+		);
+		this.depth = depth;
+	}
+}
+
+/**
+ * Thrown when an `MSH` segment's first two fields (the field separator and
+ * encoding characters) aren't plain strings. Those two fields *are* the
+ * delimiters the rest of the message is built from, not ordinary content —
+ * see docs/architecture.md's "HL7 v2 serialization" section for why `MSH`
+ * needs this special case at all.
+ */
+export class MalformedMSHSegmentError extends ClinicalFakerError {
+	constructor() {
+		super(
+			"MSH-1 (field separator) and MSH-2 (encoding characters) must be plain strings, not nested HL7Value arrays",
+		);
+	}
+}
+
+/** Thrown when `serializeMessage` is called with zero segments — every real HL7 v2 message requires at least an `MSH`. */
+export class EmptyHL7MessageError extends ClinicalFakerError {
+	constructor() {
+		super(
+			"serializeMessage: an HL7Message must contain at least one segment (MSH)",
+		);
+	}
+}

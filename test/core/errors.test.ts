@@ -4,6 +4,9 @@ import {
 	CyclicDependencyError,
 	DependencyNotReadyError,
 	DuplicateNodeIdError,
+	EmptyHL7MessageError,
+	HL7EncodingDepthError,
+	MalformedMSHSegmentError,
 	UnresolvedDependencyError,
 } from "../../src/core/errors.ts";
 
@@ -47,5 +50,27 @@ describe("ClinicalFakerError", () => {
 		expect(error).toBeInstanceOf(ClinicalFakerError);
 		expect(error.name).toBe("DependencyNotReadyError");
 		expect(error.nodeId).toBe("a");
+	});
+
+	test("HL7EncodingDepthError extends ClinicalFakerError and carries the offending depth", () => {
+		const error = new HL7EncodingDepthError(3);
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("HL7EncodingDepthError");
+		expect(error.depth).toBe(3);
+	});
+
+	test("MalformedMSHSegmentError extends ClinicalFakerError", () => {
+		const error = new MalformedMSHSegmentError();
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("MalformedMSHSegmentError");
+	});
+
+	test("EmptyHL7MessageError extends ClinicalFakerError", () => {
+		const error = new EmptyHL7MessageError();
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("EmptyHL7MessageError");
 	});
 });
