@@ -3,6 +3,11 @@ export {
 	CyclicDependencyError,
 	DependencyNotReadyError,
 	DuplicateNodeIdError,
+	EmptyHL7MessageError,
+	HL7EncodingDepthError,
+	InvalidReferenceDateError,
+	InvalidSeedError,
+	MalformedMSHSegmentError,
 	UnresolvedDependencyError,
 } from "./core/errors.ts";
 export type { PatientJSON } from "./entities/exporters/toJSON.ts";

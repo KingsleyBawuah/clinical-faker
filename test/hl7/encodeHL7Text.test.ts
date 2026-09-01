@@ -32,4 +32,13 @@ describe("encodeHL7Text", () => {
 		const expected = `${D.escape}E${D.escape}${D.escape}F${D.escape}`;
 		expect(encodeHL7Text(raw, D)).toBe(expected);
 	});
+
+	test("escapes an embedded carriage return and line feed with the standard hex-escape sequences, since either would otherwise collide with serializeMessage's segment terminator", () => {
+		expect(encodeHL7Text("line one\rline two", D)).toBe(
+			`line one${D.escape}X0D${D.escape}line two`,
+		);
+		expect(encodeHL7Text("line one\nline two", D)).toBe(
+			`line one${D.escape}X0A${D.escape}line two`,
+		);
+	});
 });

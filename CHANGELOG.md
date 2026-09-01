@@ -26,3 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated provider NPIs failed real-world Luhn checksum validation ~90% of the time; they now carry a correctly-computed NPI check digit.
 - Inpatient encounters could last as little as 15 minutes; inpatient stays now have a 12-hour minimum duration.
 - `projectVitals` picked whichever same-LOINC-code observation appeared last in the array rather than the one with the latest `effectiveDateTime`.
+- `InvalidSeedError`/`InvalidReferenceDateError` (and the new `HL7EncodingDepthError`/`MalformedMSHSegmentError`/`EmptyHL7MessageError`) were never re-exported from the package root, making them impossible for a consumer to `import` and catch by type even though `createPatient()` already threw them; all `ClinicalFakerError` subclasses are now exported from `clinical-faker`.
+- `encodeHL7Text` didn't escape an embedded `\r` or `\n` in a leaf value; either would have silently fragmented a segment into two once `serializeMessage()` joined on the real segment terminator. Now escaped via the standard `\X0D\`/`\X0A\` hex-escape sequences.
+- `serializeMessage([])` silently produced a bare `"\r"` instead of surfacing that a zero-segment message is invalid; now throws `EmptyHL7MessageError`.

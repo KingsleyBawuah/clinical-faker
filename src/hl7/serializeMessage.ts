@@ -1,4 +1,5 @@
 import {
+	EmptyHL7MessageError,
 	HL7EncodingDepthError,
 	MalformedMSHSegmentError,
 } from "../core/errors.ts";
@@ -83,11 +84,17 @@ function serializeSegment(
  * Segments are joined by a bare carriage return — never `\n` — matching HL7
  * v2.5.1's segment terminator, and the output ends with a trailing
  * terminator after the last segment, matching real-world message framing.
+ * Throws `EmptyHL7MessageError` for a zero-segment message — every real
+ * message needs at least an `MSH`, so returning a bare `\r` for `[]` would
+ * silently mask a caller bug rather than surfacing it.
  */
 export function serializeMessage(
 	message: HL7Message,
 	delimiters: HL7Delimiters = STANDARD_HL7_DELIMITERS,
 ): string {
+	if (message.length === 0) {
+		throw new EmptyHL7MessageError();
+	}
 	return (
 		message
 			.map((segment) => serializeSegment(segment, delimiters))

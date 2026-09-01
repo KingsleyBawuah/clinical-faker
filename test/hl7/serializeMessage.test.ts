@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	EmptyHL7MessageError,
 	HL7EncodingDepthError,
 	MalformedMSHSegmentError,
 } from "../../src/core/errors.ts";
@@ -73,5 +74,26 @@ describe("serializeMessage", () => {
 	test("throws HL7EncodingDepthError when a field value nests deeper than subcomponent", () => {
 		const message: HL7Message = [["OBX", [[[["too", "deep"]]]]]];
 		expect(() => serializeMessage(message)).toThrow(HL7EncodingDepthError);
+	});
+
+	test("throws EmptyHL7MessageError for a zero-segment message rather than silently emitting a bare terminator", () => {
+		expect(() => serializeMessage([])).toThrow(EmptyHL7MessageError);
+	});
+
+	test("an embedded carriage return in a leaf value doesn't fragment the segment it belongs to", () => {
+		const message: HL7Message = [
+			["EVN", "A01"],
+			["OBX", "line one\rline two"],
+			["PID", "1"],
+		];
+		const result = serializeMessage(message);
+		// exactly 3 real segments (+ the trailing terminator's empty tail) — the
+		// embedded \r must not have been split on as if it were a real segment boundary
+		expect(result.split(HL7_SEGMENT_TERMINATOR)).toEqual([
+			`EVN${D.field}A01`,
+			`OBX${D.field}line one${D.escape}X0D${D.escape}line two`,
+			`PID${D.field}1`,
+			"",
+		]);
 	});
 });

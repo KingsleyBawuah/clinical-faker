@@ -108,3 +108,12 @@ export class MalformedMSHSegmentError extends ClinicalFakerError {
 		);
 	}
 }
+
+/** Thrown when `serializeMessage` is called with zero segments — every real HL7 v2 message requires at least an `MSH`. */
+export class EmptyHL7MessageError extends ClinicalFakerError {
+	constructor() {
+		super(
+			"serializeMessage: an HL7Message must contain at least one segment (MSH)",
+		);
+	}
+}
