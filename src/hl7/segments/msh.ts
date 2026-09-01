@@ -13,7 +13,7 @@ export interface MSHFields {
 	receivingFacility: string;
 	/** Already `toDTM`-formatted. */
 	dateTime: string;
-	/** `MSH-9`, composed by the caller — e.g. `["ADT", "A01", "ADT_A01"]` wrapped as an `HL7Value`. Message-type-specific, so this builder doesn't decide it. */
+	/** `MSH-9`, composed by the caller — build it with `msg()` from `../composites.ts` (e.g. `msg("ADT", "A01", "ADT_A01")`), never a bare array, or its components will be read as repetitions instead. Message-type-specific, so this builder doesn't decide it. */
 	messageType: HL7Value;
 	messageControlId: string;
 	processingId: "P" | "T" | "D";

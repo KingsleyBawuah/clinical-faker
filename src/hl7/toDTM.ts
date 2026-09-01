@@ -13,7 +13,12 @@ function pad(value: number, length: number): string {
  * serialization" section). `"datetime"` always appends an explicit `+0000`
  * offset rather than omitting it: `DTM` treats a missing offset as
  * defaulting to the sender's local time, which would be actively wrong
- * here since every timestamp this library generates is UTC.
+ * here since every timestamp this library generates is UTC. `iso` is
+ * trusted to already be a valid ISO date/datetime — every caller in this
+ * codebase reads it from the canonical IR, which validates dates at
+ * `createPatient()`'s own boundary (`InvalidReferenceDateError`), so this
+ * function doesn't re-validate; a malformed `iso` reaching it would be a
+ * bug in an internal caller, not a reachable external input.
  */
 export function toDTM(iso: string, precision: DTMPrecision): string {
 	const date = new Date(iso);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cx, xad, xcn, xpn } from "../../src/hl7/composites.ts";
+import { cx, msg, xad, xcn, xpn } from "../../src/hl7/composites.ts";
 import { serializeMessage } from "../../src/hl7/serializeMessage.ts";
 import type { HL7Message } from "../../src/hl7/types.ts";
 import { STANDARD_HL7_DELIMITERS } from "../../src/hl7/types.ts";
@@ -58,6 +58,16 @@ describe("xcn", () => {
 		});
 		expect(serializeField(field)).toBe(
 			`1234567893${D.component}Baker${D.component}Jane`,
+		);
+	});
+});
+
+describe("msg", () => {
+	test("serializes as message code ^ trigger event ^ message structure, with no repetition delimiter", () => {
+		// regression: a bare array here (["ADT","A01","ADT_A01"]) would be read
+		// as three repetitions (~) instead of three components (^) of MSH-9
+		expect(serializeField(msg("ADT", "A01", "ADT_A01"))).toBe(
+			`ADT${D.component}A01${D.component}ADT_A01`,
 		);
 	});
 });

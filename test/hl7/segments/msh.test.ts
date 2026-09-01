@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { InvalidMessageControlIdError } from "../../../src/core/errors.ts";
+import { msg } from "../../../src/hl7/composites.ts";
 import { buildMSHSegment } from "../../../src/hl7/segments/msh.ts";
 import { serializeMessage } from "../../../src/hl7/serializeMessage.ts";
 import {
@@ -16,7 +17,7 @@ const BASE_FIELDS = {
 	receivingApplication: "RECEIVING_APP",
 	receivingFacility: "RECEIVING_FACILITY",
 	dateTime: "20240305143007+0000",
-	messageType: [["ADT", "A01", "ADT_A01"]] as const,
+	messageType: msg("ADT", "A01", "ADT_A01"),
 	messageControlId: "0123456789abcdef",
 	processingId: "P" as const,
 };

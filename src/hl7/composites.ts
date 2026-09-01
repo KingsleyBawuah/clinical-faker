@@ -63,3 +63,20 @@ export function xcn(provider: Provider): HL7Value {
 		provider.firstName,
 	]);
 }
+
+/**
+ * MSG (Message Type) — `MSH-9`'s own composite datatype: message code ^
+ * trigger event ^ message structure. Exists for the same reason as every
+ * other helper here: writing `["ADT", "A01", "ADT_A01"]` directly as a
+ * field value would be read as three *repetitions*, not three components of
+ * one message type (see PR 2a's `HL7Value` nesting rule) — caught by
+ * external review once `buildMSHSegment`'s `messageType` field made the
+ * footgun concrete.
+ */
+export function msg(
+	code: string,
+	triggerEvent: string,
+	structure: string,
+): HL7Value {
+	return singleRepetition([code, triggerEvent, structure]);
+}
