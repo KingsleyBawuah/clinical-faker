@@ -4,7 +4,9 @@
 	"description": "Zero-dependency, TypeScript-first synthetic clinical data generator for HL7 v2 and FHIR R4 integration testing.",
 	"license": "MIT",
 	"type": "module",
-	"sideEffects": false,
+	"sideEffects": [
+		"./src/index.ts"
+	],
 	"files": [
 		"dist"
 	],

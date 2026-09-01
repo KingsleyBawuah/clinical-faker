@@ -7,6 +7,25 @@ import {
 import type { DAGNode, NodeId } from "./types.ts";
 
 /**
+ * Reads one node's result out of the type-erased map `resolveDAG` returns.
+ * This is the one place that erasure has to be reversed, so it carries the
+ * single `as T` this codebase allows — see docs/architecture.md's "DAG
+ * resolution engine" for why the resolver stays type-erased internally, and
+ * why that reversal is sound despite `type-coverage --strict` flagging every
+ * `as` assertion with no exceptions.
+ */
+export function getNodeResult<T>(
+	results: ReadonlyMap<NodeId, unknown>,
+	nodeId: NodeId,
+): T {
+	if (!results.has(nodeId)) {
+		throw new DependencyNotReadyError(nodeId);
+	}
+	// type-coverage:ignore-next-line
+	return results.get(nodeId) as T;
+}
+
+/**
  * Resolves a set of DAG nodes via Kahn's algorithm. When more than one node
  * is ready (in-degree 0) at the same step, they're processed in ascending
  * lexical order by `id` — an explicit, documented contract rather than an
@@ -54,17 +73,7 @@ export function resolveDAG(nodes: readonly DAGNode[]): Map<NodeId, unknown> {
 	const results = new Map<NodeId, unknown>();
 
 	function getResult<T>(nodeId: NodeId): T {
-		if (!results.has(nodeId)) {
-			throw new DependencyNotReadyError(nodeId);
-		}
-		// The resolver stores results type-erased (`unknown`) so it can stay
-		// generic over arbitrary node result types — this is the one place that
-		// erasure has to be reversed. It's sound in practice because the resolver
-		// only ever calls getResult(id) for an id in the caller's own declared
-		// dependsOn, and the type of T at each call site is pinned by the
-		// dependency node's own declared TResult, not chosen freely.
-		// type-coverage:ignore-next-line
-		return results.get(nodeId) as T;
+		return getNodeResult<T>(results, nodeId);
 	}
 
 	while (ready.length > 0) {
