@@ -1,4 +1,5 @@
 import { getNodeResult, resolveDAG } from "./core/dag/resolver.ts";
+import { InvalidReferenceDateError, InvalidSeedError } from "./core/errors.ts";
 import { createMulberry32 } from "./core/prng/mulberry32.ts";
 import { type PatientJSON, toJSON } from "./entities/exporters/toJSON.ts";
 import type {
@@ -22,6 +23,43 @@ export interface Patient extends PatientGraph {
 
 function generateRandomSeed(): number {
 	return Math.floor(Math.random() * 0x100000000) >>> 0;
+}
+
+/**
+ * Normalizes any finite number into the uint32 space every PRNG operation
+ * already uses internally (see docs/architecture.md's "Seeded PRNG"), so
+ * `patient.seed` always reports the actual effective seed rather than raw,
+ * potentially non-integer or negative, caller input.
+ */
+function normalizeSeed(seed: number): number {
+	if (!Number.isFinite(seed)) {
+		throw new InvalidSeedError(seed);
+	}
+	return seed >>> 0;
+}
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function assertValidReferenceDate(referenceDate: string): void {
+	if (!ISO_DATE_PATTERN.test(referenceDate)) {
+		throw new InvalidReferenceDateError(referenceDate);
+	}
+
+	const year = Number(referenceDate.slice(0, 4));
+	const month = Number(referenceDate.slice(5, 7));
+	const day = Number(referenceDate.slice(8, 10));
+	const date = new Date(Date.UTC(year, month - 1, day));
+
+	// JS silently rolls calendar-invalid dates over (e.g. Feb 31 -> Mar 2)
+	// instead of producing an Invalid Date, so a round-trip check is the
+	// only way to actually catch a date like "2024-02-31".
+	const roundTrips =
+		date.getUTCFullYear() === year &&
+		date.getUTCMonth() === month - 1 &&
+		date.getUTCDate() === day;
+	if (!roundTrips) {
+		throw new InvalidReferenceDateError(referenceDate);
+	}
 }
 
 function buildPatientGraph(
@@ -62,11 +100,19 @@ function buildPatientGraph(
  * caller can capture it for later reproduction).
  */
 export function createPatient(options: GenerationOptions = {}): Patient {
-	const seed = options.seed ?? generateRandomSeed();
+	const seed =
+		options.seed !== undefined
+			? normalizeSeed(options.seed)
+			: generateRandomSeed();
+	if (options.referenceDate !== undefined) {
+		assertValidReferenceDate(options.referenceDate);
+	}
 	const graph = buildPatientGraph(seed, options);
 
 	return {
 		...graph,
-		toJSON: () => toJSON(graph),
+		toJSON(): PatientJSON {
+			return toJSON(this);
+		},
 	};
 }

@@ -17,17 +17,46 @@ describe("createDemographicsNode", () => {
 		expect(node.dependsOn).toEqual(["seed"]);
 	});
 
-	test("derives dob from age relative to referenceDate, never independently", () => {
-		const node = createDemographicsNode(createMulberry32(1));
+	test("regression: birthYear accounts for the birthday not having occurred yet this reference year", () => {
+		// Seed 0 with referenceDate 2024-01-15 samples a June birthday, which
+		// hasn't happened yet as of mid-January — so birthYear must be
+		// referenceYear - age - 1 (2005), not the naive referenceYear - age
+		// (2006) a version of this code once computed, which would make a
+		// stated age of 18 inconsistent with a 2006 birth year.
+		const node = createDemographicsNode(createMulberry32(0));
 		const getResult = stubSeedResult({
 			patientId: "unused",
-			referenceDate: "2024-06-15",
+			referenceDate: "2024-01-15",
 		});
 
-		const demographics = node.resolve(getResult);
-		const dobYear = Number(demographics.dob.slice(0, 4));
+		const { dob, age } = node.resolve(getResult);
 
-		expect(dobYear).toBe(2024 - demographics.age);
+		expect(dob).toBe("2005-06-16");
+		expect(age).toBe(18);
+	});
+
+	test("age always matches the true elapsed years between dob and referenceDate", () => {
+		const referenceDate = "2024-06-15";
+		const refYear = Number(referenceDate.slice(0, 4));
+		const refMonth = Number(referenceDate.slice(5, 7));
+		const refDay = Number(referenceDate.slice(8, 10));
+
+		for (let seed = 0; seed < 300; seed++) {
+			const node = createDemographicsNode(createMulberry32(seed));
+			const getResult = stubSeedResult({ patientId: "unused", referenceDate });
+			const { dob, age } = node.resolve(getResult);
+
+			const dobYear = Number(dob.slice(0, 4));
+			const dobMonth = Number(dob.slice(5, 7));
+			const dobDay = Number(dob.slice(8, 10));
+			const birthdayAlreadyOccurred =
+				dobMonth < refMonth || (dobMonth === refMonth && dobDay <= refDay);
+			const trueAge = birthdayAlreadyOccurred
+				? refYear - dobYear
+				: refYear - dobYear - 1;
+
+			expect(age).toBe(trueAge);
+		}
 	});
 
 	test("samples age within the realistic default adult range", () => {

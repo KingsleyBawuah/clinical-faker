@@ -54,3 +54,25 @@ export class DependencyNotReadyError extends ClinicalFakerError {
 		this.nodeId = nodeId;
 	}
 }
+
+/** Thrown when `GenerationOptions.seed` is not a finite number (e.g. `NaN` or `Infinity`). */
+export class InvalidSeedError extends ClinicalFakerError {
+	readonly seed: number;
+
+	constructor(seed: number) {
+		super(`GenerationOptions.seed must be a finite number, got ${seed}`);
+		this.seed = seed;
+	}
+}
+
+/** Thrown when `GenerationOptions.referenceDate` isn't a real `YYYY-MM-DD` calendar date. */
+export class InvalidReferenceDateError extends ClinicalFakerError {
+	readonly referenceDate: string;
+
+	constructor(referenceDate: string) {
+		super(
+			`GenerationOptions.referenceDate must be a real calendar date in "YYYY-MM-DD" format, got "${referenceDate}"`,
+		);
+		this.referenceDate = referenceDate;
+	}
+}

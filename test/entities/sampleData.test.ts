@@ -54,6 +54,14 @@ describe("pickFirstName", () => {
 		const b = createMulberry32(7);
 		expect(pickFirstName(a, "female")).toBe(pickFirstName(b, "female"));
 	});
+
+	test("is deterministic for the combined other/unknown pool too", () => {
+		for (const gender of ["other", "unknown"] as const) {
+			const a = createMulberry32(9);
+			const b = createMulberry32(9);
+			expect(pickFirstName(a, gender)).toBe(pickFirstName(b, gender));
+		}
+	});
 });
 
 describe("pickLastName", () => {

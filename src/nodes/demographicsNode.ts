@@ -17,12 +17,27 @@ const MAX_ADULT_AGE = 90;
 
 function deriveDob(referenceDate: string, age: number, prng: PRNG): string {
 	const referenceYear = Number(referenceDate.slice(0, 4));
-	const birthYear = referenceYear - age;
-	const birthMonth = String(prng.nextInt(1, 12)).padStart(2, "0");
+	const referenceMonth = Number(referenceDate.slice(5, 7));
+	const referenceDay = Number(referenceDate.slice(8, 10));
+
+	const birthMonth = prng.nextInt(1, 12);
 	// Capped at 28 to sidestep month-length edge cases (Feb 30th, etc.) —
 	// surface plausibility only, not calendar-exact.
-	const birthDay = String(prng.nextInt(1, 28)).padStart(2, "0");
-	return `${birthYear}-${birthMonth}-${birthDay}`;
+	const birthDay = prng.nextInt(1, 28);
+
+	// age is "as of referenceDate" — if this year's birthday hasn't happened
+	// yet relative to referenceDate, the person was born a year earlier than
+	// a naive `referenceYear - age` would compute. Getting this wrong makes
+	// age and dob mutually inconsistent, violating the one-source-of-truth
+	// invariant docs/architecture.md documents for these two fields.
+	const birthdayAlreadyOccurredThisYear =
+		birthMonth < referenceMonth ||
+		(birthMonth === referenceMonth && birthDay <= referenceDay);
+	const birthYear = birthdayAlreadyOccurredThisYear
+		? referenceYear - age
+		: referenceYear - age - 1;
+
+	return `${birthYear}-${String(birthMonth).padStart(2, "0")}-${String(birthDay).padStart(2, "0")}`;
 }
 
 function generateMrn(prng: PRNG): Identifier {

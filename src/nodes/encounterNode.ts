@@ -44,6 +44,13 @@ function addMinutes(iso: string, minutes: number): string {
 	return date.toISOString();
 }
 
+// Real inpatient admissions span at least half a day, not minutes — a
+// 15-minute "inpatient" stay would be an obvious plausibility red flag.
+const INPATIENT_MIN_DURATION_MINUTES = 12 * 60;
+const INPATIENT_MAX_DURATION_MINUTES = 4 * 24 * 60;
+const OTHER_MIN_DURATION_MINUTES = 15;
+const OTHER_MAX_DURATION_MINUTES = 4 * 60;
+
 function buildPeriod(
 	prng: PRNG,
 	start: string,
@@ -52,15 +59,43 @@ function buildPeriod(
 	if (!prng.nextBool(0.7)) {
 		return { start };
 	}
-	const maxDurationMinutes =
-		encounterClass === "inpatient" ? 4 * 24 * 60 : 4 * 60;
-	const durationMinutes = prng.nextInt(15, maxDurationMinutes);
+	const durationMinutes =
+		encounterClass === "inpatient"
+			? prng.nextInt(
+					INPATIENT_MIN_DURATION_MINUTES,
+					INPATIENT_MAX_DURATION_MINUTES,
+				)
+			: prng.nextInt(OTHER_MIN_DURATION_MINUTES, OTHER_MAX_DURATION_MINUTES);
 	return { start, end: addMinutes(start, durationMinutes) };
 }
 
+// Real NPIs are 10 digits where the 10th is a Luhn "double-add-double" check
+// digit computed as though the 9-digit base were prefixed with "80840" (CMS's
+// NPI check-digit specification) — verified against a worked example from
+// cms.gov before implementing, rather than generating a plain random number
+// that would fail Luhn validation ~90% of the time.
+const NPI_LUHN_PREFIX = "80840";
+
+function computeNpiCheckDigit(nineDigitBase: string): number {
+	const payload = NPI_LUHN_PREFIX + nineDigitBase;
+	let sum = 0;
+	for (let position = 0; position < payload.length; position++) {
+		const positionFromRight = payload.length - position;
+		let digit = Number(payload[position]);
+		if (positionFromRight % 2 === 1) {
+			digit *= 2;
+			if (digit > 9) digit -= 9;
+		}
+		sum += digit;
+	}
+	return (10 - (sum % 10)) % 10;
+}
+
 function generateProviderIdentifier(prng: PRNG): Identifier {
+	const base = String(prng.nextInt(100_000_000, 999_999_999));
+	const checkDigit = computeNpiCheckDigit(base);
 	return {
-		value: String(prng.nextInt(1_000_000_000, 9_999_999_999)),
+		value: `${base}${checkDigit}`,
 		assigningAuthority: "NPI",
 	};
 }

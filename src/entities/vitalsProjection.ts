@@ -26,16 +26,39 @@ const VITAL_SIGN_LOINC_CODES: Readonly<Record<string, keyof VitalsSummary>> = {
  * `observations` array into a friendly summary. `observations` stays the
  * single source of truth (it also carries lab-style values that aren't
  * vitals); this is purely an additive convenience view for `.toJSON()`.
+ *
+ * When more than one observation shares a vital-sign code (repeated
+ * readings across an encounter), the one with the latest `effectiveDateTime`
+ * wins — not whichever happens to appear last in the array.
  */
 export function projectVitals(
 	observations: readonly ObservationEntity[],
 ): VitalsSummary {
-	const vitals: VitalsSummary = {};
+	const latestByKey = new Map<
+		keyof VitalsSummary,
+		{ value: number; effectiveDateTime: string }
+	>();
+
 	for (const observation of observations) {
 		const key = VITAL_SIGN_LOINC_CODES[observation.loincCode];
-		if (key !== undefined && typeof observation.value === "number") {
-			vitals[key] = observation.value;
+		if (key === undefined || typeof observation.value !== "number") {
+			continue;
 		}
+		const existing = latestByKey.get(key);
+		if (
+			!existing ||
+			observation.effectiveDateTime > existing.effectiveDateTime
+		) {
+			latestByKey.set(key, {
+				value: observation.value,
+				effectiveDateTime: observation.effectiveDateTime,
+			});
+		}
+	}
+
+	const vitals: VitalsSummary = {};
+	for (const [key, entry] of latestByKey) {
+		vitals[key] = entry.value;
 	}
 	return vitals;
 }

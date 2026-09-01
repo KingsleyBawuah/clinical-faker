@@ -18,3 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `bun run build`'s output (`dist/index.js`) was silently empty at runtime despite a successful build: Bun's bundler tree-shook away `src/index.ts`'s entire re-exported content because of `package.json`'s `"sideEffects": false`. Fixed by switching to the array form (`"sideEffects": ["./src/index.ts"]`), which keeps every other module tree-shakable while exempting the root barrel.
+- `Demographics.dob`/`.age` could disagree by a year: `birthYear` was computed without checking whether the sampled birthday had already occurred relative to `referenceDate`.
+- `Patient.toJSON()` closed over a stale snapshot instead of reflecting the patient object's current state.
+- A non-finite `seed` (e.g. `NaN`) silently serialized as `"seed":null` in JSON output instead of being rejected; `seed` is now normalized/validated (`InvalidSeedError`).
+- An invalid or calendar-impossible `referenceDate` override (e.g. `"2024-02-31"`) crashed generation with an uncaught `RangeError` instead of a clear error (`InvalidReferenceDateError`).
+- Generated provider NPIs failed real-world Luhn checksum validation ~90% of the time; they now carry a correctly-computed NPI check digit.
+- Inpatient encounters could last as little as 15 minutes; inpatient stays now have a 12-hour minimum duration.
+- `projectVitals` picked whichever same-LOINC-code observation appeared last in the array rather than the one with the latest `effectiveDateTime`.

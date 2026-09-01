@@ -49,4 +49,23 @@ describe("projectVitals", () => {
 		];
 		expect(projectVitals(observations)).toEqual({});
 	});
+
+	test("prefers the most recent reading by effectiveDateTime, not array order", () => {
+		const observations: ObservationEntity[] = [
+			observation({
+				loincCode: "8867-4",
+				value: 60,
+				effectiveDateTime: "2024-01-01T10:00:00.000Z",
+			}),
+			// Appears later in the array but is chronologically earlier — must
+			// not win just because of array position.
+			observation({
+				loincCode: "8867-4",
+				value: 95,
+				effectiveDateTime: "2024-01-01T08:00:00.000Z",
+			}),
+		];
+
+		expect(projectVitals(observations)).toEqual({ heartRate: 60 });
+	});
 });

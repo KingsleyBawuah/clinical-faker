@@ -14,6 +14,23 @@ function stubSeedResult(referenceDate: string) {
 	return <T>(nodeId: string): T => getNodeResult<T>(results, nodeId);
 }
 
+// CMS's NPI check-digit spec: Luhn "double-add-double" over "80840" + the
+// 10-digit NPI, which must sum to a multiple of 10.
+function isValidNpiLuhn(npi: string): boolean {
+	const digits = `80840${npi}`;
+	let sum = 0;
+	for (let position = 0; position < digits.length; position++) {
+		const positionFromRight = digits.length - position;
+		let digit = Number(digits[position]);
+		if (positionFromRight % 2 === 0) {
+			digit *= 2;
+			if (digit > 9) digit -= 9;
+		}
+		sum += digit;
+	}
+	return sum % 10 === 0;
+}
+
 describe("createEncounterNode", () => {
 	test("has id 'encounter' and depends on 'seed'", () => {
 		const node = createEncounterNode(createMulberry32(1));
@@ -45,9 +62,17 @@ describe("createEncounterNode", () => {
 			}
 			expect(encounter.attendingProvider.firstName.length).toBeGreaterThan(0);
 			expect(encounter.attendingProvider.lastName.length).toBeGreaterThan(0);
-			expect(
-				encounter.attendingProvider.identifier.value.length,
-			).toBeGreaterThan(0);
+			expect(encounter.attendingProvider.identifier.value).toMatch(/^\d{10}$/);
+			expect(isValidNpiLuhn(encounter.attendingProvider.identifier.value)).toBe(
+				true,
+			);
+			if (encounter.class === "inpatient" && encounter.period.end) {
+				const durationMinutes =
+					(new Date(encounter.period.end).getTime() -
+						new Date(encounter.period.start).getTime()) /
+					60_000;
+				expect(durationMinutes).toBeGreaterThanOrEqual(12 * 60);
+			}
 		}
 	});
 

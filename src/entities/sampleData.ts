@@ -38,6 +38,8 @@ const FIRST_NAMES_FEMALE = [
 	"Sandra",
 ] as const;
 
+const FIRST_NAMES_UNISEX = [...FIRST_NAMES_MALE, ...FIRST_NAMES_FEMALE];
+
 const LAST_NAMES = [
 	"Smith",
 	"Johnson",
@@ -109,7 +111,7 @@ export function pickGender(prng: PRNG): Gender {
 export function pickFirstName(prng: PRNG, gender: Gender): string {
 	if (gender === "male") return pickFrom(prng, FIRST_NAMES_MALE);
 	if (gender === "female") return pickFrom(prng, FIRST_NAMES_FEMALE);
-	return pickFrom(prng, [...FIRST_NAMES_MALE, ...FIRST_NAMES_FEMALE]);
+	return pickFrom(prng, FIRST_NAMES_UNISEX);
 }
 
 export function pickLastName(prng: PRNG): string {
