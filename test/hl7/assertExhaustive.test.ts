@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { UnmappedHL7ValueError } from "../../../src/core/errors.ts";
-import { assertExhaustive } from "../../../src/hl7/mappings/assertExhaustive.ts";
+import { UnmappedHL7ValueError } from "../../src/core/errors.ts";
+import { assertExhaustive } from "../../src/hl7/assertExhaustive.ts";
 
 describe("assertExhaustive", () => {
 	test("throws UnmappedHL7ValueError carrying the offending value — a backstop for a bypass of the `never` parameter type", () => {

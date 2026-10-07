@@ -186,8 +186,6 @@ These are pure functions with no fallback branch needed — every IR union is cl
 **`.toHL7()` options**, formalizing what "message-level configuration passed to `.toHL7()`" (see "Deliberately not modeled" above) actually means as a type:
 
 ```ts
-type HL7EventType = "ADT^A01" | "ADT^A08" | "ORM^O01" | "ORU^R01";
-
 interface HL7ExportOptions {
   sendingApplication?: string;    // MSH-3, default "CLINICAL_FAKER"
   sendingFacility?: string;       // MSH-4, default "CLINICAL_FAKER_FACILITY"
@@ -198,7 +196,9 @@ interface HL7ExportOptions {
 }
 ```
 
-`.toHL7(eventType: HL7EventType, options?: HL7ExportOptions)` is the resulting signature.
+`.toHL7(eventType: HL7EventType, options?: HL7ExportOptions)` is the resulting signature. **`HL7EventType` is typed incrementally, not as the full four-message-type union up front**: it's `"ADT^A01" | "ADT^A08"` as of PR 2c (the only two implemented), widening to add `"ORU^R01"` in the ORU phase and `"ORM^O01"` in the ORM phase as each actually ships. A public method advertising a compile-time-valid call for a message type it can't yet handle would mean a TypeScript consumer's correctly-typechecked code throws at runtime — the type surface should never promise more than the implementation behind it delivers.
+
+**Independent field-position confirmation (PR 2c)**: every segment/composite-datatype decision made across PR 2a-2c (`MSH`/`PID`/`PV1`/`EVN`/`DG1`/`AL1`'s field numbers; `XPN`/`XAD`/`CX`/`XCN`/`CE`'s component orders) was re-confirmed against `hl7v2-dictionary`'s own HL7 v2.5.1 definitions (downloaded and inspected directly, not just read about) before the cross-validation test was written — every single one matched. This is a materially stronger signal than a single passing round-trip test: it means an entirely separate, independently-authored dictionary agrees with every structural decision this library made from a written spec, not just that this library's own serializer and its own test happen to agree with each other.
 
 **Empty-collection handling for `ORU^R01`**: `patient.observations` is `[]` by default until a Phase 4 archetype populates it (see Phase 1's `demographicsNode`/`encounterNode` notes). `.toHL7("ORU^R01")` on such a patient produces a **structurally valid message with an `OBR` and zero `OBX` segments** — legal per the spec (an `ORDER_OBSERVATION` group's `OBSERVATION` sub-group is itself optional/repeating, not required-minimum-one) and consistent with how `.toJSON()`/`.toFHIR()` already handle the same empty-array case: no result to serialize is a legitimate state, not a caller error. `createPatient()` doesn't throw `UnknownArchetypeError`-style validation errors for "not enough data to be interesting" elsewhere in the IR, and `.toHL7()` shouldn't invent a new rule for it here.
 
@@ -239,7 +239,7 @@ All four are free and require no API key or account — confirmed by querying ea
 
 Round-trip tests (serialize, then split by delimiter and confirm fields match the source data) only prove our HL7/FHIR builders are internally consistent with our own serializer — they can't catch a case where our output is subtly non-conformant to the actual spec, since the same misunderstanding would produce both the message and the test that checks it. To catch that class of bug, generated output gets fed into independent, unrelated implementations as part of the test suite for those phases:
 
-- **HL7 v2**: [`hl7v2`](https://github.com/panates/hl7v2) (npm, MIT) — chosen over Redox's `@redox-opensource/redox-hl7-v2` (also real and viable, verified via the npm registry and `gh api`, but plain JS and its last publish is older) because `hl7v2` is TypeScript-native (matches this project's stack) and actively maintained (pushed April 2026 at the time of checking), with parser, serializer, validator, server, and client support.
+- **HL7 v2**: [`hl7v2`](https://github.com/panates/hl7v2) (npm, MIT) — chosen over Redox's `@redox-opensource/redox-hl7-v2` (also real and viable, verified via the npm registry and `gh api`, but plain JS and its last publish is older) because `hl7v2` is TypeScript-native (matches this project's stack) and actively maintained (pushed April 2026 at the time of checking), with parser, serializer, validator, server, and client support. **Implemented in PR 2c** (`hl7v2@1.9.0`, plus its `hl7v2-dictionary@1.9.0` peer dependency — peer dependencies aren't auto-installed, so both are listed explicitly in `devDependencies`), which also verified `dist/index.js` never references `hl7v2` (`grep -c hl7v2 dist/index.js` → `0`), confirming this doesn't touch the zero-runtime-dependency policy for real, not just by construction. `HL7Message.parse()`'s actual runtime behavior was probed directly rather than trusted from the README: `field.getValue()` on a composite field returns the first component's raw value in the installed version, not the semantic `{ familyName, givenName }`-shaped object the README's own example shows — the cross-validation test's assertions are grounded in the former, confirmed live.
 - **FHIR R4**: the official HL7 FHIR reference validator, via `fhir-validator-wrapper` — maintained under the official `github.com/FHIR` org by Grahame Grieve, FHIR's technical lead. This is the actual reference implementation the FHIR community uses to certify conformance, not a third-party approximation.
 
 Both are **devDependencies only, used in tests** — never bundled into the published package, so this doesn't touch the zero-runtime-dependency policy. The FHIR validator wraps a Java tool, so its CI job needs a JVM (`actions/setup-java`), added when the FHIR compilation phase starts.

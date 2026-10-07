@@ -113,4 +113,36 @@ describe("createPatient", () => {
 			createPatient({ seed: 1, referenceDate: "2023-02-29" }),
 		).toThrow(InvalidReferenceDateError);
 	});
+
+	test("toHL7() produces a well-formed ADT^A01 message carrying the patient's own data", () => {
+		const patient = createPatient({ seed: 7 });
+		const message = patient.toHL7("ADT^A01");
+
+		expect(message.startsWith("MSH|")).toBe(true);
+		expect(message).toContain(patient.demographics.mrn.value);
+		expect(message).toContain(patient.demographics.lastName);
+	});
+
+	test("toHL7() is deterministic: the same seed and event type produce byte-identical output", () => {
+		const a = createPatient({ seed: 7 }).toHL7("ADT^A01");
+		const b = createPatient({ seed: 7 }).toHL7("ADT^A01");
+		expect(a).toBe(b);
+
+		// Also true for repeated calls on the very same Patient object.
+		const patient = createPatient({ seed: 7 });
+		expect(patient.toHL7("ADT^A01")).toBe(patient.toHL7("ADT^A01"));
+	});
+
+	test("toHL7() gives ADT^A01 and ADT^A08 from the same patient different default message control ids", () => {
+		const patient = createPatient({ seed: 7 });
+		const a01ControlId = patient.toHL7("ADT^A01").split("|")[9];
+		const a08ControlId = patient.toHL7("ADT^A08").split("|")[9];
+		expect(a01ControlId).not.toBe(a08ControlId);
+	});
+
+	test("toHL7() respects an HL7ExportOptions.messageControlId override", () => {
+		const patient = createPatient({ seed: 7 });
+		const message = patient.toHL7("ADT^A01", { messageControlId: "custom-id" });
+		expect(message.split("|")[9]).toBe("custom-id");
+	});
 });

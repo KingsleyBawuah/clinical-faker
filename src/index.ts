@@ -33,3 +33,4 @@ export type {
 export type { VitalsSummary } from "./entities/vitalsProjection.ts";
 export type { GenerationOptions, Patient } from "./generator.ts";
 export { createPatient } from "./generator.ts";
+export type { HL7EventType, HL7ExportOptions } from "./hl7/exportOptions.ts";

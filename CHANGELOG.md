@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `createPatient(options?)`: generates a deterministic synthetic patient (demographics, one encounter) and returns a `Patient` with a `.toJSON()` export. First public entry point — `clinical-faker`'s root import now works end to end.
 - HL7 v2 encoding core (`src/hl7`): `serializeMessage()`, a generic nested-array (segment → field → repetition → component → subcomponent) walker producing HL7 v2.5.1 wire text, with `MSH` special-cased for its field-separator/encoding-characters fields; `encodeHL7Text()` for delimiter escaping. Not yet exposed via a public entry point.
 - HL7 v2 common segment builders (`src/hl7/segments`): `buildMSHSegment`/`buildPIDSegment`/`buildPV1Segment`, plus supporting `toDTM()` timestamp formatting, deterministic `MSH-10` generation, `xpn`/`xad`/`cx`/`xcn`/`msg` composite-datatype helpers, and gender/patient-class coded-value mappings. Not yet wired into `createPatient()`/`.toHL7()`.
+- `Patient.toHL7(eventType, options?)`: compiles the canonical IR into an `ADT^A01`/`ADT^A08` HL7 v2.5.1 message string — `EVN`/`DG1`/`AL1` segment builders, message assembly, and `HL7ExportOptions`. Deterministic like every other export: the same seed and event type always produce byte-identical output. Cross-validated against the independent `hl7v2` parser, and every field position/composite component order it uses was independently re-confirmed against `hl7v2-dictionary`'s own HL7 v2.5.1 definitions before this PR's test was written.
 
 ### Fixed
 
