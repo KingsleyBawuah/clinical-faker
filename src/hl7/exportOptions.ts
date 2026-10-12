@@ -1,12 +1,12 @@
 /**
  * Message types `.toHL7()` currently supports. Widens as later phases
- * land: `"ORU^R01"` in the ORU phase, `"ORM^O01"` in the ORM phase — see
+ * land: `"ORM^O01"` in the ORM phase — see
  * the PR 2a-2e breakdown in docs/implementation.md. Kept exactly matched to
  * what's actually implemented rather than declared in advance, so a
  * TypeScript consumer never gets a compile-time-valid call that throws at
  * runtime.
  */
-export type HL7EventType = "ADT^A01" | "ADT^A08";
+export type HL7EventType = "ADT^A01" | "ADT^A08" | "ORU^R01";
 
 /**
  * Message-level metadata `.toHL7()` accepts, distinct from the canonical IR

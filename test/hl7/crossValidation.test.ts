@@ -5,6 +5,7 @@ import type { PatientGraph } from "../../src/entities/types.ts";
 import { createPatient } from "../../src/generator.ts";
 import { toHL7Gender } from "../../src/hl7/mappings/gender.ts";
 import { buildADTMessage } from "../../src/hl7/messages/adt.ts";
+import { buildORUMessage } from "../../src/hl7/messages/oru.ts";
 import { serializeMessage } from "../../src/hl7/serializeMessage.ts";
 
 /**
@@ -18,7 +19,8 @@ import { serializeMessage } from "../../src/hl7/serializeMessage.ts";
  *
  * Every field position and composite-datatype component order used by
  * `buildMSHSegment`/`buildPIDSegment`/`buildPV1Segment`/`buildEVNSegment`/
- * `buildDG1Segment`/`buildAL1Segment` was also independently confirmed
+ * `buildDG1Segment`/`buildAL1Segment`/`buildORCSegment`/`buildOBRSegment`/
+ * `buildOBXSegment` was also independently confirmed
  * against `hl7v2-dictionary`'s own HL7 v2.5.1 field/type definitions
  * (`node_modules/hl7v2-dictionary/segment-fields`,
  * `node_modules/hl7v2-dictionary/type-fields`) before writing this test —
@@ -145,5 +147,81 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 		expect(al1.field(3).component(2).getValue()).toBe("Penicillin");
 		expect(al1.field(4).getValue()).toBe("SV");
 		expect(al1.field(5).getValue()).toBe("Hives");
+	});
+
+	test("a generated ORU^R01 with no observations parses cleanly as ORC + OBR with zero OBX", () => {
+		const patient = createPatient({ seed: 42 });
+		const message = HL7Message.parse(patient.toHL7("ORU^R01"));
+
+		expect(message.version).toBe("2.5.1");
+		expect(message.messageType).toBe("ORU^R01");
+		expect(message.segments.map((segment) => segment.segmentType)).toEqual([
+			"MSH",
+			"PID",
+			"PV1",
+			"ORC",
+			"OBR",
+		]);
+		expect(message.getSegment("OBR")?.field(4).getValue()).toBe("85353-1");
+	});
+
+	test("ORC/OBR/OBX field values recognized by the independent dictionary match what the builders wrote", () => {
+		const patient: PatientGraph = {
+			...createPatient({ seed: 42 }),
+			observations: [
+				{
+					loincCode: "8480-6",
+					display: "Systolic blood pressure",
+					value: 152,
+					unit: "mm[Hg]",
+					effectiveDateTime: "2024-03-05T15:00:00.000Z",
+					referenceRange: { low: 90, high: 120 },
+					abnormalFlag: "H",
+				},
+				{
+					loincCode: "5778-6",
+					display: "Color of Urine",
+					value: "Yellow",
+					effectiveDateTime: "2024-03-05T15:00:00.000Z",
+				},
+			],
+		};
+		const message = HL7Message.parse(
+			serializeMessage(buildORUMessage(patient, createMulberry32(1))),
+		);
+
+		expect(message.segments.map((segment) => segment.segmentType)).toEqual([
+			"MSH",
+			"PID",
+			"PV1",
+			"ORC",
+			"OBR",
+			"OBX",
+			"OBX",
+		]);
+
+		const orc = message.getSegment("ORC");
+		const obr = message.getSegment("OBR");
+		if (orc === undefined || obr === undefined) throw new Error("unreachable");
+		expect(orc.field(1).getValue()).toBe("RE");
+		expect(obr.field(2).getValue()).toBe(orc.field(2).getValue());
+		expect(obr.field(4).component(3).getValue()).toBe("LN");
+		expect(obr.field(25).getValue()).toBe("F");
+
+		const [numeric, text] = message.segments.filter(
+			(segment) => segment.segmentType === "OBX",
+		);
+		// hl7v2 coerces OBX-1's SI datatype to a JS number, unlike DG1-15's
+		// plain ID field above — observed from the installed parser, not documented.
+		expect(numeric?.field(1).getValue()).toBe(1);
+		expect(numeric?.field(2).getValue()).toBe("NM");
+		expect(numeric?.field(3).getValue()).toBe("8480-6");
+		expect(numeric?.field(5).getValue()).toBe("152");
+		expect(numeric?.field(7).getValue()).toBe("90-120");
+		expect(numeric?.field(8).getValue()).toBe("H");
+		expect(numeric?.field(11).getValue()).toBe("F");
+		expect(text?.field(1).getValue()).toBe(2);
+		expect(text?.field(2).getValue()).toBe("ST");
+		expect(text?.field(5).getValue()).toBe("Yellow");
 	});
 });
