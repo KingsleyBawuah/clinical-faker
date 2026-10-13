@@ -165,6 +165,29 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 		expect(message.getSegment("OBR")?.field(4).getValue()).toBe("85353-1");
 	});
 
+	test("a generated ORM^O01 message parses cleanly as ORC (NW) + OBR with order numbers shared between them", () => {
+		const patient = createPatient({ seed: 42 });
+		const message = HL7Message.parse(patient.toHL7("ORM^O01"));
+
+		expect(message.version).toBe("2.5.1");
+		expect(message.messageType).toBe("ORM^O01");
+		expect(message.segments.map((segment) => segment.segmentType)).toEqual([
+			"MSH",
+			"PID",
+			"PV1",
+			"ORC",
+			"OBR",
+		]);
+
+		const orc = message.getSegment("ORC");
+		const obr = message.getSegment("OBR");
+		if (orc === undefined || obr === undefined) throw new Error("unreachable");
+		expect(orc.field(1).getValue()).toBe("NW");
+		expect(obr.field(2).getValue()).toBe(orc.field(2).getValue());
+		expect(obr.field(3).getValue()).toBe(orc.field(3).getValue());
+		expect(obr.field(4).getValue()).toBe("85353-1");
+	});
+
 	test("ORC/OBR/OBX field values recognized by the independent dictionary match what the builders wrote", () => {
 		const patient: PatientGraph = {
 			...createPatient({ seed: 42 }),

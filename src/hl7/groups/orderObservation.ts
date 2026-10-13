@@ -1,9 +1,8 @@
 import type { ObservationEntity } from "../../entities/types.ts";
 import type { HL7Order } from "../order.ts";
-import { buildOBRSegment } from "../segments/obr.ts";
 import { buildOBXSegment } from "../segments/obx.ts";
-import { buildORCSegment } from "../segments/orc.ts";
 import type { HL7Segment } from "../types.ts";
+import { buildCommonOrderSegments } from "./commonOrder.ts";
 
 /** Earliest `effectiveDateTime`, or `undefined` for an empty list. */
 function earliestEffectiveDateTime(
@@ -36,8 +35,7 @@ export function buildOrderObservationGroup(
 ): HL7Segment[] {
 	const observationDateTime = earliestEffectiveDateTime(observations);
 	return [
-		buildORCSegment(order, "RE"),
-		buildOBRSegment(order, setId, {
+		...buildCommonOrderSegments(order, "RE", setId, {
 			...(observationDateTime === undefined ? {} : { observationDateTime }),
 			resultStatus: "F",
 		}),

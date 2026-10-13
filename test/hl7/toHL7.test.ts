@@ -55,6 +55,11 @@ describe("toHL7", () => {
 		expect(message).toContain("ORU^R01^ORU_R01");
 	});
 
+	test("dispatches ORM^O01 to an ORM_O01-structured message", () => {
+		const message = toHL7(PATIENT, "ORM^O01");
+		expect(message).toContain("ORM^O01^ORM_O01");
+	});
+
 	test("is deterministic for the same patient and event type", () => {
 		expect(toHL7(PATIENT, "ADT^A01")).toBe(toHL7(PATIENT, "ADT^A01"));
 	});
