@@ -12,11 +12,19 @@ import { generateOrderNumber } from "./orderNumber.ts";
 export interface HL7Order {
 	/** `ORC-2`/`OBR-2`. */
 	placerOrderNumber: string;
-	/** `ORC-3`/`OBR-3`. */
-	fillerOrderNumber: string;
+	/** `ORC-3`/`OBR-3`. Absent until the filler has assigned one — see `OrderSender`. */
+	fillerOrderNumber?: string;
 	/** `ORC-12`/`OBR-16`. Absent when the patient has no encounter to take an attending provider from. */
 	orderingProvider?: Provider;
 }
+
+/**
+ * Which side of the order is sending the message. A placer's new order
+ * (`ORM^O01` `NW`) carries only its own placer number — the filler assigns
+ * the filler number when it accepts the order. A filler's results
+ * (`ORU^R01`) carry both.
+ */
+export type OrderSender = "placer" | "filler";
 
 /**
  * Derives the message's single order. Placer/filler order numbers each
@@ -26,10 +34,17 @@ export interface HL7Order {
 export function buildHL7Order(
 	encounter: Encounter | undefined,
 	prng: PRNG,
+	sender: OrderSender,
 ): HL7Order {
 	return {
 		placerOrderNumber: generateOrderNumber(prng.fork("placer-order-number")),
-		fillerOrderNumber: generateOrderNumber(prng.fork("filler-order-number")),
+		...(sender === "filler"
+			? {
+					fillerOrderNumber: generateOrderNumber(
+						prng.fork("filler-order-number"),
+					),
+				}
+			: {}),
 		...(encounter === undefined
 			? {}
 			: { orderingProvider: encounter.attendingProvider }),

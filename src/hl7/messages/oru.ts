@@ -36,7 +36,7 @@ export function buildORUMessage(
 		buildPIDSegment(patient.demographics),
 		...(encounter === undefined ? [] : [buildPV1Segment(encounter)]),
 		...buildOrderObservationGroup(
-			buildHL7Order(encounter, prng),
+			buildHL7Order(encounter, prng, "filler"),
 			1,
 			patient.observations,
 		),

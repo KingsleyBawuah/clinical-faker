@@ -17,7 +17,9 @@ export function buildORCSegment(
 	return buildSegmentFromFields("ORC", {
 		1: orderControl,
 		2: order.placerOrderNumber,
-		3: order.fillerOrderNumber,
+		...(order.fillerOrderNumber === undefined
+			? {}
+			: { 3: order.fillerOrderNumber }),
 		...(order.orderingProvider === undefined
 			? {}
 			: { 12: xcn(order.orderingProvider) }),

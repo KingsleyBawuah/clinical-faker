@@ -165,7 +165,7 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 		expect(message.getSegment("OBR")?.field(4).getValue()).toBe("85353-1");
 	});
 
-	test("a generated ORM^O01 message parses cleanly as ORC (NW) + OBR with order numbers shared between them", () => {
+	test("a generated ORM^O01 message parses cleanly as ORC (NW) + OBR sharing a placer number, with no filler number", () => {
 		const patient = createPatient({ seed: 42 });
 		const message = HL7Message.parse(patient.toHL7("ORM^O01"));
 
@@ -184,7 +184,8 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 		if (orc === undefined || obr === undefined) throw new Error("unreachable");
 		expect(orc.field(1).getValue()).toBe("NW");
 		expect(obr.field(2).getValue()).toBe(orc.field(2).getValue());
-		expect(obr.field(3).getValue()).toBe(orc.field(3).getValue());
+		expect(orc.field(3).getValue()).toBeUndefined();
+		expect(obr.field(3).getValue()).toBeUndefined();
 		expect(obr.field(4).getValue()).toBe("85353-1");
 	});
 

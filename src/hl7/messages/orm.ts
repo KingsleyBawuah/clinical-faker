@@ -16,7 +16,8 @@ const ORM_MESSAGE_STRUCTURE = "ORM_O01";
  * Builds an `ORM^O01` message: `MSH, [PATIENT{ PID, [PATIENT_VISIT{ PV1 }] }],
  * { ORDER{ ORC, [ORDER_DETAIL{ OBR }] } }`. On the wire that's flat:
  * `MSH, PID, [PV1], ORC, OBR`. A new order (`ORC-1` `NW`) has no results
- * yet, so there are no `OBX`s and `OBR-7`/`OBR-25` stay empty.
+ * yet, so there are no `OBX`s and `OBR-7`/`OBR-25` stay empty. It's sent
+ * by the placer, so `ORC-3`/`OBR-3` (filler order number) stay empty too.
  */
 export function buildORMMessage(
 	patient: PatientGraph,
@@ -34,6 +35,10 @@ export function buildORMMessage(
 		),
 		buildPIDSegment(patient.demographics),
 		...(encounter === undefined ? [] : [buildPV1Segment(encounter)]),
-		...buildCommonOrderSegments(buildHL7Order(encounter, prng), "NW", 1),
+		...buildCommonOrderSegments(
+			buildHL7Order(encounter, prng, "placer"),
+			"NW",
+			1,
+		),
 	];
 }
