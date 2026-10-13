@@ -3,6 +3,7 @@ import type { PatientGraph } from "../entities/types.ts";
 import { assertExhaustive } from "./assertExhaustive.ts";
 import type { HL7EventType, HL7ExportOptions } from "./exportOptions.ts";
 import { buildADTMessage } from "./messages/adt.ts";
+import { buildORMMessage } from "./messages/orm.ts";
 import { buildORUMessage } from "./messages/oru.ts";
 import { serializeMessage } from "./serializeMessage.ts";
 
@@ -27,6 +28,8 @@ export function toHL7(
 			return serializeMessage(buildADTMessage(patient, "A08", prng, options));
 		case "ORU^R01":
 			return serializeMessage(buildORUMessage(patient, prng, options));
+		case "ORM^O01":
+			return serializeMessage(buildORMMessage(patient, prng, options));
 		default:
 			return assertExhaustive(eventType);
 	}

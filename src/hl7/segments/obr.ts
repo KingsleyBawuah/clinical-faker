@@ -39,7 +39,9 @@ export function buildOBRSegment(
 	return buildSegmentFromFields("OBR", {
 		1: String(setId),
 		2: order.placerOrderNumber,
-		3: order.fillerOrderNumber,
+		...(order.fillerOrderNumber === undefined
+			? {}
+			: { 3: order.fillerOrderNumber }),
 		4: DEFAULT_UNIVERSAL_SERVICE_ID,
 		...(observationDateTime === undefined
 			? {}
