@@ -14,7 +14,8 @@ describe("createPatient", () => {
 	});
 
 	// Expected values recorded from seed 42 before the provider id existed:
-	// adding a seeded field must not shift any previously generated value.
+	// adding a seeded field must not shift any previously generated value. The
+	// provider id itself is pinned too, so a change to it is caught here.
 	test("seed 42's encounter keeps its pre-provider-id values", () => {
 		const encounter = createPatient({ seed: 42 }).encounters[0];
 
@@ -24,7 +25,7 @@ describe("createPatient", () => {
 			period: { start: "2024-10-17T11:16:00.000Z" },
 			location: "Ward 3A",
 			attendingProvider: {
-				id: expect.any(String),
+				id: "a844d112-f640-45a0-ae4e-882ba8a5e21e",
 				identifier: { value: "3912859014", assigningAuthority: "NPI" },
 				firstName: "Elizabeth",
 				lastName: "Garcia",

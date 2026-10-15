@@ -98,6 +98,16 @@ describe("createEncounterNode", () => {
 		}
 	});
 
+	test("gives each encounter resolved from one stream a distinct provider id", () => {
+		const getResult = stubSeedResult("2024-06-15");
+		const node = createEncounterNode(createMulberry32(7));
+
+		const first = node.resolve(getResult);
+		const second = node.resolve(getResult);
+
+		expect(second.attendingProvider.id).not.toBe(first.attendingProvider.id);
+	});
+
 	test("is deterministic: same seed and referenceDate produce the same encounter", () => {
 		const getResult = stubSeedResult("2024-01-01");
 		const nodeA = createEncounterNode(createMulberry32(42));

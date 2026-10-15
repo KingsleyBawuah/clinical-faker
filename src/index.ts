@@ -19,6 +19,7 @@ export type {
 	Address,
 	AllergyCriticality,
 	AllergyEntity,
+	AssigningAuthority,
 	ConditionEntity,
 	ConditionRank,
 	Demographics,
