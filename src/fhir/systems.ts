@@ -33,6 +33,11 @@ export const DATA_ABSENT_REASON_SYSTEM =
 /** R4 core vital-signs profile — set in `meta.profile` so the validator checks it explicitly. */
 export const VITAL_SIGNS_PROFILE =
 	"http://hl7.org/fhir/StructureDefinition/vitalsigns";
+/** R4 core blood-pressure panel profile (`85354-9`). */
+export const BP_PROFILE = "http://hl7.org/fhir/StructureDefinition/bp";
+/** R4 core oxygen-saturation profile, keyed on LOINC `2708-6`. */
+export const OXYGEN_SATURATION_PROFILE =
+	"http://hl7.org/fhir/StructureDefinition/oxygensat";
 /** Confirmed by the FHIR validator in PR 3b — it knows this URI, and rejects the older `http://hl7.org/fhir/sid/npi`. */
 export const NPI_SYSTEM = "http://hl7.org/fhir/sid/us-npi";
 /** This library's own namespace; a URN so it can never collide with a real organization's domain. */

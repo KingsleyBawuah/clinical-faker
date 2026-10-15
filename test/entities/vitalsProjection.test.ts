@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { ObservationEntity } from "../../src/entities/types.ts";
-import { projectVitals } from "../../src/entities/vitalsProjection.ts";
+import {
+	isVitalSignLoincCode,
+	projectVitals,
+} from "../../src/entities/vitalsProjection.ts";
 
 function observation(
 	overrides: Partial<ObservationEntity> & Pick<ObservationEntity, "loincCode">,
@@ -70,5 +73,23 @@ describe("projectVitals", () => {
 		];
 
 		expect(projectVitals(observations)).toEqual({ heartRate: 60 });
+	});
+});
+
+describe("isVitalSignLoincCode", () => {
+	test("is true for every generated vital sign and false otherwise", () => {
+		for (const code of [
+			"8480-6",
+			"8462-4",
+			"8867-4",
+			"8310-5",
+			"9279-1",
+			"59408-5",
+		]) {
+			expect(isVitalSignLoincCode(code)).toBe(true);
+		}
+		expect(isVitalSignLoincCode("2345-7")).toBe(false);
+		// An inherited Object property must not count as a code.
+		expect(isVitalSignLoincCode("toString")).toBe(false);
 	});
 });

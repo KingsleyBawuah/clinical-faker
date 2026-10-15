@@ -12,13 +12,17 @@ export interface VitalsSummary {
 // Verified live against the NLM Clinical Table Search Service
 // (clinicaltables.nlm.nih.gov/api/loinc_items) rather than trusted from
 // memory — see docs/architecture.md's "Ontology data-accuracy verification".
+export const SYSTOLIC_BP_LOINC = "8480-6"; // Systolic blood pressure
+export const DIASTOLIC_BP_LOINC = "8462-4"; // Diastolic blood pressure
+export const SPO2_LOINC = "59408-5"; // Oxygen saturation in Arterial blood by Pulse oximetry
+
 const VITAL_SIGN_LOINC_CODES: Readonly<Record<string, keyof VitalsSummary>> = {
-	"8480-6": "systolicBp", // Systolic blood pressure
-	"8462-4": "diastolicBp", // Diastolic blood pressure
+	[SYSTOLIC_BP_LOINC]: "systolicBp",
+	[DIASTOLIC_BP_LOINC]: "diastolicBp",
 	"8867-4": "heartRate", // Heart rate
 	"8310-5": "temperature", // Body temperature
 	"9279-1": "respiratoryRate", // Respiratory rate
-	"59408-5": "spo2", // Oxygen saturation in Arterial blood by Pulse oximetry
+	[SPO2_LOINC]: "spo2",
 };
 
 /** Whether a LOINC code is one of the vital signs this library generates. */

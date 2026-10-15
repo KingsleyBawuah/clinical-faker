@@ -33,7 +33,8 @@ import { createPatient } from "../../src/generator.ts";
  *
  * Fails on any warning, not just errors, so an unknown code system surfaces
  * — except dom-6 ("should have narrative"), which this library deliberately
- * doesn't generate.
+ * doesn't generate, and the two UCUM warnings `-tx n/a` always raises because
+ * the validator can't check UCUM codes without a terminology server.
  */
 const ENABLED = process.env.FHIR_VALIDATOR === "1";
 const JAR_PATH =
@@ -47,6 +48,20 @@ const VALIDATE_TIMEOUT_MS = MS_PER_MINUTE;
 const SEEDS = [1, 2, 3, 42, 1234];
 /** Best-practice "resources should have narrative" — `text` is intentionally not generated. */
 const NARRATIVE_CONSTRAINT = "dom-6:";
+const UCUM_SYSTEM = "http://unitsofmeasure.org";
+/** The validator's wording for "can't check this code offline" — only ignored for UCUM. */
+const NO_TERMINOLOGY_SERVICE = [
+	"because the validator is running without terminology services",
+	"but the definition doesn't include any codes",
+];
+
+function isExpectedWarning(issue: string): boolean {
+	return (
+		issue.includes(NARRATIVE_CONSTRAINT) ||
+		(issue.includes(UCUM_SYSTEM) &&
+			NO_TERMINOLOGY_SERVICE.some((phrase) => issue.includes(phrase)))
+	);
+}
 const ENCOUNTER_CLASSES: EncounterClass[] = [
 	"inpatient",
 	"outpatient",
@@ -69,7 +84,7 @@ function buildResources(graph: PatientGraph): FHIRResource[] {
 					...graph.conditions.map((condition) =>
 						buildCondition(condition, graph.id, first.id),
 					),
-					...buildObservations(graph.observations, graph.id, first.id),
+					...buildObservations(graph.observations, graph.id, first),
 					...graph.medications.map((medication) =>
 						buildMedicationRequest(medication, graph.id, first.id),
 					),
@@ -142,6 +157,45 @@ const FIXTURE_OBSERVATIONS: ObservationEntity[] = [
 		effectiveDateTime: AT,
 	},
 	{
+		id: "6a7b8c9d-0e1f-4a2b-8c3d-5e6f7a8b9c0d",
+		loincCode: "8310-5",
+		display: "Body temperature",
+		value: 37.2,
+		unit: "Cel",
+		effectiveDateTime: AT,
+	},
+	{
+		id: "7b8c9d0e-1f2a-4b3c-9d4e-6f7a8b9c0d1e",
+		loincCode: "9279-1",
+		display: "Respiratory rate",
+		value: 16,
+		unit: "/min",
+		effectiveDateTime: AT,
+	},
+	{
+		id: "8c9d0e1f-2a3b-4c4d-8e5f-7a8b9c0d1e2f",
+		loincCode: "59408-5",
+		display: "Oxygen saturation in Arterial blood by Pulse oximetry",
+		value: 97,
+		unit: "%",
+		effectiveDateTime: AT,
+	},
+	// Text and unitless vital signs — emitted without claiming the vital-signs profile.
+	{
+		id: "9d0e1f2a-3b4c-4d5e-9f6a-8b9c0d1e2f3a",
+		loincCode: "8867-4",
+		display: "Heart rate",
+		value: "Irregular",
+		effectiveDateTime: LATER,
+	},
+	{
+		id: "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+		loincCode: "8867-4",
+		display: "Heart rate",
+		value: 80,
+		effectiveDateTime: LATER,
+	},
+	{
 		id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
 		loincCode: "2345-7",
 		display: "Glucose [Mass/volume] in Serum or Plasma",
@@ -210,7 +264,7 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 		return (outcome.issue ?? [])
 			.filter((issue) => issue.severity !== "information")
 			.map(describeIssue)
-			.filter((issue) => !issue.includes(NARRATIVE_CONSTRAINT));
+			.filter((issue) => !isExpectedWarning(issue));
 	}
 
 	async function expectValid(resource: FHIRResource): Promise<void> {
@@ -250,7 +304,7 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 			const [lab] = buildObservations(
 				FIXTURE_OBSERVATIONS.filter((o) => o.loincCode === "2345-7"),
 				graph.id,
-				encounter.id,
+				encounter,
 			);
 			if (lab === undefined) throw new Error("unreachable");
 			const problems = await problemsWith({
@@ -265,6 +319,35 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 						],
 					},
 				],
+			});
+			expect(problems.length).toBeGreaterThan(0);
+		},
+		VALIDATE_TIMEOUT_MS,
+	);
+
+	// Same check for ICD-10-CM: a near-miss hl7.org URI must be rejected, so
+	// the real one passing the seed tests below confirms it.
+	test(
+		"rejects a wrong ICD-10-CM system URI",
+		async () => {
+			const graph = createPatient({ seed: 1 }).toJSON();
+			const [encounter] = graph.encounters;
+			const [condition] = FIXTURE_CONDITIONS;
+			if (encounter === undefined || condition === undefined) {
+				throw new Error("unreachable");
+			}
+			const resource = buildCondition(condition, graph.id, encounter.id);
+			const problems = await problemsWith({
+				...resource,
+				code: {
+					coding: [
+						{
+							system: "http://hl7.org/fhir/sid/icd10cm",
+							code: condition.code,
+							display: condition.display,
+						},
+					],
+				},
 			});
 			expect(problems.length).toBeGreaterThan(0);
 		},

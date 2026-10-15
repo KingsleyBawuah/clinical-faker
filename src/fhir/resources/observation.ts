@@ -1,11 +1,21 @@
-import type { ObservationEntity } from "../../entities/types.ts";
-import { isVitalSignLoincCode } from "../../entities/vitalsProjection.ts";
+import type {
+	Encounter as IREncounter,
+	ObservationEntity,
+} from "../../entities/types.ts";
+import {
+	DIASTOLIC_BP_LOINC,
+	isVitalSignLoincCode,
+	SPO2_LOINC,
+	SYSTOLIC_BP_LOINC,
+} from "../../entities/vitalsProjection.ts";
 import { codeableConcept, coding, reference } from "../datatypes.ts";
 import {
+	BP_PROFILE,
 	DATA_ABSENT_REASON_SYSTEM,
 	LOINC_SYSTEM,
 	OBSERVATION_CATEGORY_SYSTEM,
 	OBSERVATION_INTERPRETATION_SYSTEM,
+	OXYGEN_SATURATION_PROFILE,
 	UCUM_SYSTEM,
 	VITAL_SIGNS_PROFILE,
 } from "../systems.ts";
@@ -14,111 +24,179 @@ import type {
 	Observation,
 	ObservationBase,
 	ObservationComponent,
-	ObservationReferenceRange,
+	ObservationInterpretationAndRange,
 	Quantity,
 } from "../types.ts";
 
 // LOINC codes and displays verified against the NLM Clinical Table Search
 // Service, like vitalsProjection.ts's vital-sign codes.
-const BP_PANEL_CODE = "85354-9";
-const BP_PANEL_DISPLAY = "Blood pressure panel with all children optional";
+const BP_PANEL_CODING = coding(
+	LOINC_SYSTEM,
+	"85354-9",
+	"Blood pressure panel with all children optional",
+);
 const BP_COMPONENTS = {
-	systolic: { code: "8480-6", display: "Systolic blood pressure" },
-	diastolic: { code: "8462-4", display: "Diastolic blood pressure" },
+	systolic: { code: SYSTOLIC_BP_LOINC, display: "Systolic blood pressure" },
+	diastolic: { code: DIASTOLIC_BP_LOINC, display: "Diastolic blood pressure" },
 } as const;
-type BPSide = keyof typeof BP_COMPONENTS;
+/** The code R4's oxygen-saturation profile is keyed on; added alongside the IR's more specific pulse-oximetry code. */
+const OXYGEN_SATURATION_CODING = coding(
+	LOINC_SYSTEM,
+	"2708-6",
+	"Oxygen saturation in Arterial blood",
+);
 
-/** Systolic and diastolic readings sharing an `effectiveDateTime`, compiled into one panel. `first` supplies the panel's id. */
-interface BPPanel {
-	first: ObservationEntity;
-	systolic?: ObservationEntity;
-	diastolic?: ObservationEntity;
+type BPSide = keyof typeof BP_COMPONENTS;
+type ObservationCategoryCode = "vital-signs" | "laboratory";
+
+/** What every Observation for an encounter references: its patient, encounter, and performer (the attending provider). */
+interface ObservationContext {
+	patientId: string;
+	encounterId: string;
+	performerId: string;
+}
+
+interface IndexedReading {
+	observation: ObservationEntity;
+	/** Position in the input, so output order follows it. */
+	index: number;
 }
 
 function bpSide(loincCode: string): BPSide | undefined {
-	if (loincCode === BP_COMPONENTS.systolic.code) return "systolic";
-	if (loincCode === BP_COMPONENTS.diastolic.code) return "diastolic";
+	if (loincCode === SYSTOLIC_BP_LOINC) return "systolic";
+	if (loincCode === DIASTOLIC_BP_LOINC) return "diastolic";
 	return undefined;
 }
 
+/** Groups readings by the instant they were taken, not the string, so the same time written with different UTC offsets pairs. */
+function instantKey(dateTime: string): string {
+	const epochMs = Date.parse(dateTime);
+	return Number.isNaN(epochMs) ? dateTime : String(epochMs);
+}
+
 /**
- * Builds every `Observation` for a patient's observations. Blood-pressure
+ * Builds every `Observation` for a patient's observations, all attached to
+ * one encounter and performed by its attending provider. Blood-pressure
  * readings are paired into `85354-9` panels — see docs/architecture.md's
- * "Blood pressure is a panel in FHIR". A panel takes the id of whichever of
- * its readings comes first, and sits at that reading's position; the other
- * reading's IR id isn't emitted. A second reading for a side that's already
- * filled at the same time starts a new panel rather than overwriting.
+ * "Blood pressure is a panel in FHIR": at each instant, the nth systolic
+ * pairs with the nth diastolic, in input order. A panel takes the id of
+ * whichever of its readings comes first and sits at that reading's position;
+ * the other reading's IR id isn't emitted.
  */
 export function buildObservations(
 	observations: readonly ObservationEntity[],
 	patientId: string,
-	encounterId: string,
+	encounter: IREncounter,
 ): Observation[] {
-	const slots: (ObservationEntity | BPPanel)[] = [];
-	const openPanels = new Map<string, BPPanel>();
+	const context: ObservationContext = {
+		patientId,
+		encounterId: encounter.id,
+		performerId: encounter.attendingProvider.id,
+	};
+	const built: { index: number; resource: Observation }[] = [];
+	const bpByInstant = new Map<string, Record<BPSide, IndexedReading[]>>();
 
-	for (const observation of observations) {
+	observations.forEach((observation, index) => {
 		const side = bpSide(observation.loincCode);
 		if (side === undefined) {
-			slots.push(observation);
-			continue;
+			built.push({ index, resource: buildObservation(observation, context) });
+			return;
 		}
-		const open = openPanels.get(observation.effectiveDateTime);
-		if (open !== undefined && open[side] === undefined) {
-			open[side] = observation;
-			continue;
+		const key = instantKey(observation.effectiveDateTime);
+		const group = bpByInstant.get(key) ?? { systolic: [], diastolic: [] };
+		group[side].push({ observation, index });
+		bpByInstant.set(key, group);
+	});
+
+	for (const group of bpByInstant.values()) {
+		const pairs = Math.max(group.systolic.length, group.diastolic.length);
+		for (let pair = 0; pair < pairs; pair++) {
+			const systolic = group.systolic[pair];
+			const diastolic = group.diastolic[pair];
+			const first =
+				diastolic !== undefined &&
+				(systolic === undefined || diastolic.index < systolic.index)
+					? diastolic
+					: systolic;
+			if (first === undefined) continue;
+			built.push({
+				index: first.index,
+				resource: buildBPPanel(
+					first.observation,
+					systolic?.observation,
+					diastolic?.observation,
+					context,
+				),
+			});
 		}
-		const panel: BPPanel = { first: observation, [side]: observation };
-		slots.push(panel);
-		openPanels.set(observation.effectiveDateTime, panel);
 	}
 
-	return slots.map((slot) =>
-		"first" in slot
-			? buildBPPanel(slot, patientId, encounterId)
-			: buildObservation(slot, patientId, encounterId),
-	);
+	return built
+		.sort((a, b) => a.index - b.index)
+		.map(({ resource }) => resource);
 }
 
 function buildObservation(
 	observation: ObservationEntity,
-	patientId: string,
-	encounterId: string,
+	context: ObservationContext,
 ): Observation {
+	const isVitalSign = isVitalSignLoincCode(observation.loincCode);
 	const base = observationBase(
 		observation,
-		coding(LOINC_SYSTEM, observation.loincCode, observation.display),
-		isVitalSignLoincCode(observation.loincCode),
-		patientId,
-		encounterId,
+		observationCode(observation),
+		isVitalSign ? "vital-signs" : "laboratory",
+		context,
 	);
-	const resource: Observation =
-		typeof observation.value === "number"
-			? {
-					...base,
-					valueQuantity: quantity(observation.value, observation.unit),
-				}
-			: { ...base, valueString: observation.value };
-	Object.assign(resource, interpretationAndRange(observation));
+	const details = interpretationAndRange(observation);
+	if (typeof observation.value !== "number") {
+		return { ...base, ...details, valueString: observation.value };
+	}
+	const resource: Observation = {
+		...base,
+		...details,
+		valueQuantity: quantity(observation.value, observation.unit),
+	};
+	// The vital-signs profile requires a UCUM-coded quantity, so only a
+	// numeric reading with a unit claims it.
+	if (isVitalSign && observation.unit !== undefined) {
+		resource.meta = {
+			profile:
+				observation.loincCode === SPO2_LOINC
+					? [VITAL_SIGNS_PROFILE, OXYGEN_SATURATION_PROFILE]
+					: [VITAL_SIGNS_PROFILE],
+		};
+	}
 	return resource;
 }
 
+function observationCode(observation: ObservationEntity): CodeableConcept {
+	const primary = coding(
+		LOINC_SYSTEM,
+		observation.loincCode,
+		observation.display,
+	);
+	return observation.loincCode === SPO2_LOINC
+		? { coding: [primary, OXYGEN_SATURATION_CODING] }
+		: codeableConcept(primary);
+}
+
 function buildBPPanel(
-	panel: BPPanel,
-	patientId: string,
-	encounterId: string,
+	first: ObservationEntity,
+	systolic: ObservationEntity | undefined,
+	diastolic: ObservationEntity | undefined,
+	context: ObservationContext,
 ): Observation {
 	return {
 		...observationBase(
-			panel.first,
-			coding(LOINC_SYSTEM, BP_PANEL_CODE, BP_PANEL_DISPLAY),
-			true,
-			patientId,
-			encounterId,
+			first,
+			codeableConcept(BP_PANEL_CODING),
+			"vital-signs",
+			context,
 		),
+		meta: { profile: [VITAL_SIGNS_PROFILE, BP_PROFILE] },
 		component: [
-			bpComponent("systolic", panel.systolic),
-			bpComponent("diastolic", panel.diastolic),
+			bpComponent("systolic", systolic),
+			bpComponent("diastolic", diastolic),
 		],
 	};
 }
@@ -139,51 +217,41 @@ function bpComponent(
 	const componentCode = codeableConcept(
 		coding(LOINC_SYSTEM, code, reading.display),
 	);
-	const component: ObservationComponent =
-		typeof reading.value === "number"
-			? {
-					code: componentCode,
-					valueQuantity: quantity(reading.value, reading.unit),
-				}
-			: {
-					code: componentCode,
-					// The bp profile only allows a Quantity here, so a free-text reading is kept as the reason's text.
-					dataAbsentReason: {
-						coding: [coding(DATA_ABSENT_REASON_SYSTEM, "as-text")],
-						text: reading.value,
-					},
-				};
-	return { ...component, ...interpretationAndRange(reading) };
+	const details = interpretationAndRange(reading);
+	return typeof reading.value === "number"
+		? {
+				code: componentCode,
+				...details,
+				valueQuantity: quantity(reading.value, reading.unit),
+			}
+		: {
+				code: componentCode,
+				...details,
+				// The bp profile only allows a Quantity here, so a free-text reading is kept as the reason's text.
+				dataAbsentReason: {
+					coding: [coding(DATA_ABSENT_REASON_SYSTEM, "as-text")],
+					text: reading.value,
+				},
+			};
 }
 
 function observationBase(
 	observation: ObservationEntity,
-	code: ReturnType<typeof coding>,
-	isVitalSign: boolean,
-	patientId: string,
-	encounterId: string,
+	code: CodeableConcept,
+	category: ObservationCategoryCode,
+	context: ObservationContext,
 ): ObservationBase {
-	const base: ObservationBase = {
+	return {
 		resourceType: "Observation",
 		id: observation.id,
 		status: "final",
-		category: [
-			codeableConcept(
-				coding(
-					OBSERVATION_CATEGORY_SYSTEM,
-					isVitalSign ? "vital-signs" : "laboratory",
-				),
-			),
-		],
-		code: codeableConcept(code),
-		subject: reference(patientId),
-		encounter: reference(encounterId),
+		category: [codeableConcept(coding(OBSERVATION_CATEGORY_SYSTEM, category))],
+		code,
+		subject: reference(context.patientId),
+		encounter: reference(context.encounterId),
 		effectiveDateTime: observation.effectiveDateTime,
+		performer: [reference(context.performerId)],
 	};
-	if (isVitalSign) {
-		base.meta = { profile: [VITAL_SIGNS_PROFILE] };
-	}
-	return base;
 }
 
 /** UCUM-coded when the IR has a unit: the IR's units are UCUM codes, so `unit` and `code` match. */
@@ -193,28 +261,24 @@ function quantity(value: number, unit: string | undefined): Quantity {
 		: { value, unit, system: UCUM_SYSTEM, code: unit };
 }
 
-function interpretationAndRange(observation: ObservationEntity): {
-	interpretation?: CodeableConcept[];
-	referenceRange?: ObservationReferenceRange[];
-} {
-	const fields: {
-		interpretation?: CodeableConcept[];
-		referenceRange?: ObservationReferenceRange[];
-	} = {};
+function interpretationAndRange(
+	observation: ObservationEntity,
+): ObservationInterpretationAndRange {
+	const details: ObservationInterpretationAndRange = {};
 	if (observation.abnormalFlag !== undefined) {
-		fields.interpretation = [
+		details.interpretation = [
 			codeableConcept(
 				coding(OBSERVATION_INTERPRETATION_SYSTEM, observation.abnormalFlag),
 			),
 		];
 	}
 	if (observation.referenceRange !== undefined) {
-		fields.referenceRange = [
+		details.referenceRange = [
 			{
 				low: quantity(observation.referenceRange.low, observation.unit),
 				high: quantity(observation.referenceRange.high, observation.unit),
 			},
 		];
 	}
-	return fields;
+	return details;
 }
