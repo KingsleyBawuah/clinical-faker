@@ -85,6 +85,29 @@ describe("createEncounterNode", () => {
 		expect(encounter.period.start.startsWith("2030-03-01")).toBe(true);
 	});
 
+	test("gives the attending provider its own seeded id, distinct from the encounter's", () => {
+		const getResult = stubSeedResult("2024-06-15");
+
+		for (let seed = 0; seed < 50; seed++) {
+			const encounter = createEncounterNode(createMulberry32(seed)).resolve(
+				getResult,
+			);
+
+			expect(encounter.attendingProvider.id).toMatch(UUID_PATTERN);
+			expect(encounter.attendingProvider.id).not.toBe(encounter.id);
+		}
+	});
+
+	test("gives each encounter resolved from one stream a distinct provider id", () => {
+		const getResult = stubSeedResult("2024-06-15");
+		const node = createEncounterNode(createMulberry32(7));
+
+		const first = node.resolve(getResult);
+		const second = node.resolve(getResult);
+
+		expect(second.attendingProvider.id).not.toBe(first.attendingProvider.id);
+	});
+
 	test("is deterministic: same seed and referenceDate produce the same encounter", () => {
 		const getResult = stubSeedResult("2024-01-01");
 		const nodeA = createEncounterNode(createMulberry32(42));

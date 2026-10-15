@@ -26,6 +26,7 @@ function samplePatient(): PatientGraph {
 		conditions: [],
 		observations: [
 			{
+				id: "observation-1",
 				loincCode: "8480-6",
 				display: "Systolic blood pressure",
 				value: 130,

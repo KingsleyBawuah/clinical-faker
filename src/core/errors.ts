@@ -134,6 +134,16 @@ export class UnmappedHL7ValueError extends ClinicalFakerError {
 	}
 }
 
+/** FHIR R4 counterpart of `UnmappedHL7ValueError`, thrown by the FHIR layer's `assertExhaustive` — the same unreachable-for-typed-callers backstop. */
+export class UnmappedFHIRValueError extends ClinicalFakerError {
+	readonly value: unknown;
+
+	constructor(value: unknown) {
+		super(`No FHIR R4 mapping defined for value: ${JSON.stringify(value)}`);
+		this.value = value;
+	}
+}
+
 /** Thrown when an `HL7ExportOptions.messageControlId` override exceeds `MSH-10`'s confirmed 20-character `ST`-datatype maximum. */
 export class InvalidMessageControlIdError extends ClinicalFakerError {
 	readonly messageControlId: string;

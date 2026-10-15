@@ -28,6 +28,7 @@ const BASE_PATIENT: PatientGraph = {
 			class: "inpatient",
 			period: { start: "2024-03-05T14:30:07.000Z" },
 			attendingProvider: {
+				id: "provider-1",
 				identifier: { value: "1234567893", assigningAuthority: "NPI" },
 				firstName: "Jane",
 				lastName: "Baker",
@@ -37,6 +38,7 @@ const BASE_PATIENT: PatientGraph = {
 	conditions: [],
 	observations: [
 		{
+			id: "observation-1",
 			loincCode: "8480-6",
 			display: "Systolic blood pressure",
 			value: 152,
@@ -46,6 +48,7 @@ const BASE_PATIENT: PatientGraph = {
 			abnormalFlag: "H",
 		},
 		{
+			id: "observation-2",
 			loincCode: "8867-4",
 			display: "Heart rate",
 			value: 72,

@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import type { Encounter } from "../../../src/entities/types.ts";
+import type { Encounter, Provider } from "../../../src/entities/types.ts";
 import { buildPV1Segment } from "../../../src/hl7/segments/pv1.ts";
 import { serializeMessage } from "../../../src/hl7/serializeMessage.ts";
 import { STANDARD_HL7_DELIMITERS } from "../../../src/hl7/types.ts";
 
 const D = STANDARD_HL7_DELIMITERS;
 
-const PROVIDER = {
+const PROVIDER: Provider = {
+	id: "provider-1",
 	identifier: { value: "1234567893", assigningAuthority: "NPI" },
 	firstName: "Jane",
 	lastName: "Baker",

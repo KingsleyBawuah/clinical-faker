@@ -7,6 +7,7 @@ import { STANDARD_HL7_DELIMITERS } from "../../../src/hl7/types.ts";
 const D = STANDARD_HL7_DELIMITERS;
 
 const SYSTOLIC: ObservationEntity = {
+	id: "observation-1",
 	loincCode: "8480-6",
 	display: "Systolic blood pressure",
 	value: 152,
@@ -44,6 +45,7 @@ describe("buildOBXSegment", () => {
 
 	test("uses ST and leaves units/reference range/abnormal flag empty when the observation has none", () => {
 		const observation: ObservationEntity = {
+			id: "observation-2",
 			loincCode: "5778-6",
 			display: "Color of Urine",
 			value: "Yellow",

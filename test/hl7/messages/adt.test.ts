@@ -37,6 +37,7 @@ const BASE_PATIENT: PatientGraph = {
 			class: "inpatient",
 			period: { start: "2024-03-05T14:30:07.000Z" },
 			attendingProvider: {
+				id: "provider-1",
 				identifier: { value: "1234567893", assigningAuthority: "NPI" },
 				firstName: "Jane",
 				lastName: "Baker",
@@ -63,14 +64,22 @@ describe("buildADTMessage", () => {
 		const patient: PatientGraph = {
 			...BASE_PATIENT,
 			conditions: [
-				{ code: "I10", display: "Essential hypertension", rank: "primary" },
 				{
+					id: "condition-1",
+					code: "I10",
+					display: "Essential hypertension",
+					rank: "primary",
+				},
+				{
+					id: "condition-2",
 					code: "E78.5",
 					display: "Hyperlipidemia, unspecified",
 					rank: "secondary",
 				},
 			],
-			allergies: [{ substance: "Penicillin", criticality: "high" }],
+			allergies: [
+				{ id: "allergy-1", substance: "Penicillin", criticality: "high" },
+			],
 		};
 		const message = buildADTMessage(patient, "A01", createMulberry32(1));
 		expect(segmentIds(patient)).toEqual([

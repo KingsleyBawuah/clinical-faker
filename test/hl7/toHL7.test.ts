@@ -27,6 +27,7 @@ const PATIENT: PatientGraph = {
 			class: "inpatient",
 			period: { start: "2024-03-05T14:30:07.000Z" },
 			attendingProvider: {
+				id: "provider-1",
 				identifier: { value: "1234567893", assigningAuthority: "NPI" },
 				firstName: "Jane",
 				lastName: "Baker",

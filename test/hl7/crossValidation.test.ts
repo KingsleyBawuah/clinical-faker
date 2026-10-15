@@ -99,6 +99,7 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 					class: "inpatient",
 					period: { start: "2024-03-05T14:30:07.000Z" },
 					attendingProvider: {
+						id: "provider-1",
 						identifier: { value: "1234567893", assigningAuthority: "NPI" },
 						firstName: "Jane",
 						lastName: "Baker",
@@ -106,8 +107,14 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 				},
 			],
 			conditions: [
-				{ code: "I10", display: "Essential hypertension", rank: "primary" },
 				{
+					id: "condition-1",
+					code: "I10",
+					display: "Essential hypertension",
+					rank: "primary",
+				},
+				{
+					id: "condition-2",
 					code: "E78.5",
 					display: "Hyperlipidemia, unspecified",
 					rank: "secondary",
@@ -116,7 +123,12 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 			observations: [],
 			medications: [],
 			allergies: [
-				{ substance: "Penicillin", reaction: "Hives", criticality: "high" },
+				{
+					id: "allergy-1",
+					substance: "Penicillin",
+					reaction: "Hives",
+					criticality: "high",
+				},
 			],
 		};
 		const message = HL7Message.parse(
@@ -194,6 +206,7 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 			...createPatient({ seed: 42 }),
 			observations: [
 				{
+					id: "observation-1",
 					loincCode: "8480-6",
 					display: "Systolic blood pressure",
 					value: 152,
@@ -203,6 +216,7 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 					abnormalFlag: "H",
 				},
 				{
+					id: "observation-2",
 					loincCode: "5778-6",
 					display: "Color of Urine",
 					value: "Yellow",
