@@ -117,11 +117,20 @@ export interface ObservationReferenceRange {
 	high: Quantity;
 }
 
+/** An observed value's interpretation and normal range — shared by an `Observation` and its components. */
+export interface ObservationInterpretationAndRange {
+	interpretation?: CodeableConcept[];
+	referenceRange?: ObservationReferenceRange[];
+}
+
 /** Exactly one of a value or the reason it's missing — how the vital-signs blood-pressure panel marks an unpaired reading. */
-export type ObservationComponent = { code: CodeableConcept } & (
-	| { valueQuantity: Quantity; dataAbsentReason?: never }
-	| { valueQuantity?: never; dataAbsentReason: CodeableConcept }
-);
+export type ObservationComponent = {
+	code: CodeableConcept;
+} & ObservationInterpretationAndRange &
+	(
+		| { valueQuantity: Quantity; dataAbsentReason?: never }
+		| { valueQuantity?: never; dataAbsentReason: CodeableConcept }
+	);
 
 export interface ObservationBase {
 	resourceType: "Observation";
@@ -133,6 +142,7 @@ export interface ObservationBase {
 	subject: Reference;
 	encounter: Reference;
 	effectiveDateTime: string;
+	performer: Reference[];
 	interpretation?: CodeableConcept[];
 	referenceRange?: ObservationReferenceRange[];
 	component?: ObservationComponent[];

@@ -144,6 +144,25 @@ export class UnmappedFHIRValueError extends ClinicalFakerError {
 	}
 }
 
+/**
+ * Thrown when a numeric vital-sign observation has no unit. R4's vital-sign
+ * profiles require a UCUM-coded quantity, and the IR always gives a vital a
+ * unit, so a missing one is a generation bug. Carries ids only, never the
+ * observed value.
+ */
+export class MissingVitalSignUnitError extends ClinicalFakerError {
+	readonly observationId: string;
+	readonly loincCode: string;
+
+	constructor(observationId: string, loincCode: string) {
+		super(
+			`Vital-sign observation "${observationId}" (LOINC ${loincCode}) has a numeric value but no unit`,
+		);
+		this.observationId = observationId;
+		this.loincCode = loincCode;
+	}
+}
+
 /** Thrown when an `HL7ExportOptions.messageControlId` override exceeds `MSH-10`'s confirmed 20-character `ST`-datatype maximum. */
 export class InvalidMessageControlIdError extends ClinicalFakerError {
 	readonly messageControlId: string;

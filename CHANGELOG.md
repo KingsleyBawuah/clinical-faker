@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Patient.toHL7("ORM^O01")`: compiles the canonical IR into an `ORM^O01` new-order message (`ORC` with `NW` + `OBR`, no `OBX`, placer order number only), sharing the `ORC`/`OBR` builder with `ORU^R01`. Cross-validated against the independent `hl7v2` parser.
 - FHIR R4 groundwork (`src/fhir`): hand-written R4 resource/datatype types, code and identifier system URIs, and `reference`/`coding`/`codeableConcept`/`humanName`/`address`/`identifier` helpers. Not yet exposed via a public entry point; only `UnmappedFHIRValueError` is exported from the package root.
 - FHIR R4 `Patient`, `Practitioner`, and `Encounter` builders (`src/fhir/resources`), checked against the official HL7 FHIR validator in CI. Not yet exposed via a public entry point — `Patient.toFHIR()` lands with bundle assembly.
+- FHIR R4 `Condition`, `Observation`, `MedicationRequest`, and `AllergyIntolerance` builders (`src/fhir/resources`). Systolic and diastolic readings taken at the same time become one `85354-9` blood-pressure panel; vital signs get the `vital-signs` category and the core vital-signs profile, everything else `laboratory`. Not yet exposed via a public entry point; only the new `MissingVitalSignUnitError` (a numeric vital sign with no unit) is exported from the package root.
 
 ### Changed
 
