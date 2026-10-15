@@ -2,8 +2,19 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import FhirValidator, {
 	type OperationOutcomeIssue,
 } from "fhir-validator-wrapper";
-import type { EncounterClass, PatientGraph } from "../../src/entities/types.ts";
+import type {
+	AllergyEntity,
+	ConditionEntity,
+	EncounterClass,
+	MedicationEntity,
+	ObservationEntity,
+	PatientGraph,
+} from "../../src/entities/types.ts";
+import { buildAllergyIntolerance } from "../../src/fhir/resources/allergyIntolerance.ts";
+import { buildCondition } from "../../src/fhir/resources/condition.ts";
 import { buildEncounter } from "../../src/fhir/resources/encounter.ts";
+import { buildMedicationRequest } from "../../src/fhir/resources/medicationRequest.ts";
+import { buildObservations } from "../../src/fhir/resources/observation.ts";
 import { buildPatient } from "../../src/fhir/resources/patient.ts";
 import { buildPractitioner } from "../../src/fhir/resources/practitioner.ts";
 import type { FHIRResource } from "../../src/fhir/types.ts";
@@ -48,15 +59,132 @@ function describeIssue(issue: OperationOutcomeIssue): string {
 	return `${issue.severity} @ ${where ?? "?"}: ${message}`;
 }
 
-/** Every resource 3b can build for a patient. */
+/** Every resource the builders produce for a patient, with clinical entities attached to its first encounter. */
 function buildResources(graph: PatientGraph): FHIRResource[] {
+	const [first] = graph.encounters;
+	const clinical: FHIRResource[] =
+		first === undefined
+			? []
+			: [
+					...graph.conditions.map((condition) =>
+						buildCondition(condition, graph.id, first.id),
+					),
+					...buildObservations(graph.observations, graph.id, first.id),
+					...graph.medications.map((medication) =>
+						buildMedicationRequest(medication, graph.id, first.id),
+					),
+				];
 	return [
 		buildPatient(graph.id, graph.demographics),
 		...graph.encounters.flatMap((encounter) => [
 			buildPractitioner(encounter.attendingProvider),
 			buildEncounter(encounter, graph.id),
 		]),
+		...clinical,
+		...graph.allergies.map((allergy) =>
+			buildAllergyIntolerance(allergy, graph.id),
+		),
 	];
+}
+
+// Hand-built until Phase 4's archetypes generate these — synthetic values only.
+const AT = "2024-03-01T09:00:00.000Z";
+const LATER = "2024-03-01T15:00:00.000Z";
+const FIXTURE_CONDITIONS: ConditionEntity[] = [
+	{
+		id: "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+		code: "I10",
+		display: "Essential (primary) hypertension",
+		onsetDate: "2023-11-20",
+		rank: "primary",
+	},
+	{
+		id: "c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f",
+		code: "E78.5",
+		display: "Hyperlipidemia, unspecified",
+		rank: "secondary",
+	},
+];
+const FIXTURE_OBSERVATIONS: ObservationEntity[] = [
+	{
+		id: "2c3d4e5f-6a7b-4c8d-8e9f-1a2b3c4d5e6f",
+		loincCode: "8480-6",
+		display: "Systolic blood pressure",
+		value: 152,
+		unit: "mm[Hg]",
+		effectiveDateTime: AT,
+		referenceRange: { low: 90, high: 120 },
+		abnormalFlag: "H",
+	},
+	{
+		id: "3d4e5f6a-7b8c-4d9e-9f0a-2b3c4d5e6f7a",
+		loincCode: "8462-4",
+		display: "Diastolic blood pressure",
+		value: 94,
+		unit: "mm[Hg]",
+		effectiveDateTime: AT,
+	},
+	// Unpaired — becomes a panel with dataAbsentReason on the systolic side.
+	{
+		id: "4e5f6a7b-8c9d-4e0f-8a1b-3c4d5e6f7a8b",
+		loincCode: "8462-4",
+		display: "Diastolic blood pressure",
+		value: 88,
+		unit: "mm[Hg]",
+		effectiveDateTime: LATER,
+	},
+	{
+		id: "1b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e",
+		loincCode: "8867-4",
+		display: "Heart rate",
+		value: 72,
+		unit: "/min",
+		effectiveDateTime: AT,
+	},
+	{
+		id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+		loincCode: "2345-7",
+		display: "Glucose [Mass/volume] in Serum or Plasma",
+		value: 182,
+		unit: "mg/dL",
+		effectiveDateTime: AT,
+		referenceRange: { low: 70, high: 99 },
+		abnormalFlag: "H",
+	},
+	{
+		id: "5f6a7b8c-9d0e-4f1a-9b2c-4d5e6f7a8b9c",
+		loincCode: "5778-6",
+		display: "Color of Urine",
+		value: "Yellow",
+		effectiveDateTime: AT,
+	},
+];
+const FIXTURE_MEDICATIONS: MedicationEntity[] = [
+	{
+		id: "d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f7a",
+		name: "lisinopril 10 MG Oral Tablet",
+		rxcui: "314076",
+		sig: "Take 1 tablet by mouth once daily",
+	},
+];
+const FIXTURE_ALLERGIES: AllergyEntity[] = [
+	{
+		id: "e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7a8b",
+		substance: "Penicillin",
+		reaction: "Hives",
+		criticality: "high",
+	},
+	{ id: "f6a7b8c9-d0e1-4f2a-9b3c-4d5e6f7a8b9c", substance: "Latex" },
+];
+
+function withClinicalFixtures(graph: PatientGraph): PatientGraph {
+	return {
+		...graph,
+		conditions: FIXTURE_CONDITIONS,
+		observations: FIXTURE_OBSERVATIONS,
+		medications: FIXTURE_MEDICATIONS,
+		allergies: FIXTURE_ALLERGIES,
+	};
 }
 
 describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
@@ -111,12 +239,44 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 		VALIDATE_TIMEOUT_MS,
 	);
 
+	// Settles the observation-category URI: the older one from the R4
+	// terminologies page must be rejected, or the guard below proves nothing.
+	test(
+		"rejects the older observation-category system URI",
+		async () => {
+			const graph = withClinicalFixtures(createPatient({ seed: 1 }).toJSON());
+			const [encounter] = graph.encounters;
+			if (encounter === undefined) throw new Error("unreachable");
+			const [lab] = buildObservations(
+				FIXTURE_OBSERVATIONS.filter((o) => o.loincCode === "2345-7"),
+				graph.id,
+				encounter.id,
+			);
+			if (lab === undefined) throw new Error("unreachable");
+			const problems = await problemsWith({
+				...lab,
+				category: [
+					{
+						coding: [
+							{
+								system: "http://hl7.org/fhir/observation-category",
+								code: "laboratory",
+							},
+						],
+					},
+				],
+			});
+			expect(problems.length).toBeGreaterThan(0);
+		},
+		VALIDATE_TIMEOUT_MS,
+	);
+
 	for (const seed of SEEDS) {
 		test(
-			`seed ${seed}: Patient, Practitioner, and Encounter validate`,
+			`seed ${seed}: every resource validates, with hand-built clinical entities`,
 			async () => {
 				for (const resource of buildResources(
-					createPatient({ seed }).toJSON(),
+					withClinicalFixtures(createPatient({ seed }).toJSON()),
 				)) {
 					await expectValid(resource);
 				}

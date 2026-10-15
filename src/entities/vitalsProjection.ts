@@ -21,6 +21,11 @@ const VITAL_SIGN_LOINC_CODES: Readonly<Record<string, keyof VitalsSummary>> = {
 	"59408-5": "spo2", // Oxygen saturation in Arterial blood by Pulse oximetry
 };
 
+/** Whether a LOINC code is one of the vital signs this library generates. */
+export function isVitalSignLoincCode(loincCode: string): boolean {
+	return Object.hasOwn(VITAL_SIGN_LOINC_CODES, loincCode);
+}
+
 /**
  * Projects well-known vital-sign LOINC codes out of the generic
  * `observations` array into a friendly summary. `observations` stays the

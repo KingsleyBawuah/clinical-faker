@@ -118,7 +118,11 @@ export interface ObservationReferenceRange {
 }
 
 /** Exactly one of a value or the reason it's missing — how the vital-signs blood-pressure panel marks an unpaired reading. */
-export type ObservationComponent = { code: CodeableConcept } & (
+export type ObservationComponent = {
+	code: CodeableConcept;
+	interpretation?: CodeableConcept[];
+	referenceRange?: ObservationReferenceRange[];
+} & (
 	| { valueQuantity: Quantity; dataAbsentReason?: never }
 	| { valueQuantity?: never; dataAbsentReason: CodeableConcept }
 );
