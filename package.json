@@ -42,6 +42,6 @@
 		"hl7v2-dictionary": "1.9.0",
 		"license-checker": "25.0.1",
 		"type-coverage": "2.30.3",
-		"typescript": "6.0.3"
+		"typescript": "7.0.2"
 	}
 }
