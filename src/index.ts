@@ -9,6 +9,7 @@ export {
 	InvalidReferenceDateError,
 	InvalidSeedError,
 	MalformedMSHSegmentError,
+	UnmappedFHIRValueError,
 	UnmappedHL7ValueError,
 	UnresolvedDependencyError,
 } from "./core/errors.ts";

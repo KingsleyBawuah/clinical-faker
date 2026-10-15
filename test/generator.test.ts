@@ -13,6 +13,25 @@ describe("createPatient", () => {
 		expect(JSON.stringify(a)).toBe(JSON.stringify(b));
 	});
 
+	// Expected values recorded from seed 42 before the provider id existed:
+	// adding a seeded field must not shift any previously generated value.
+	test("seed 42's encounter keeps its pre-provider-id values", () => {
+		const encounter = createPatient({ seed: 42 }).encounters[0];
+
+		expect(encounter).toEqual({
+			id: "f8f2d03e-205b-4efe-8ecd-4ee1f81d2f8b",
+			class: "outpatient",
+			period: { start: "2024-10-17T11:16:00.000Z" },
+			location: "Ward 3A",
+			attendingProvider: {
+				id: expect.any(String),
+				identifier: { value: "3912859014", assigningAuthority: "NPI" },
+				firstName: "Elizabeth",
+				lastName: "Garcia",
+			},
+		});
+	});
+
 	test("different seeds produce different patients", () => {
 		const a = createPatient({ seed: 1 });
 		const b = createPatient({ seed: 2 });

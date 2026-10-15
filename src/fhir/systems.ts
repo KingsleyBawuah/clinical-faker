@@ -1,5 +1,5 @@
 import type { AssigningAuthority } from "../entities/types.ts";
-import { assertExhaustive } from "../hl7/assertExhaustive.ts";
+import { assertExhaustive } from "./assertExhaustive.ts";
 
 // Code and identifier system URIs — see docs/architecture.md's "FHIR R4
 // compilation" section for the source of each. The ones marked unverified
