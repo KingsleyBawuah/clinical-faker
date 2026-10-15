@@ -9,6 +9,7 @@ export {
 	InvalidReferenceDateError,
 	InvalidSeedError,
 	MalformedMSHSegmentError,
+	MissingVitalSignUnitError,
 	UnmappedFHIRValueError,
 	UnmappedHL7ValueError,
 	UnresolvedDependencyError,

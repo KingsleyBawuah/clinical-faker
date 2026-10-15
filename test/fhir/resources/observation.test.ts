@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { MissingVitalSignUnitError } from "../../../src/core/errors.ts";
 import type {
 	Encounter,
 	ObservationEntity,
@@ -268,21 +269,39 @@ describe("buildObservations", () => {
 		expect(panels[0]?.effectiveDateTime).toBe(AT);
 	});
 
-	test("doesn't claim the vital-signs profile for a text or unitless vital sign", () => {
-		const { unit: _unit, ...unitless } = heartRate;
-		const [text, bare] = buildObservations(
-			[
-				{ ...heartRate, value: "Irregular" },
-				{ ...unitless, id: SYSTOLIC_ID },
-			],
+	test("keeps a text vital sign as an as-text dataAbsentReason, since vital-sign profiles only allow a Quantity", () => {
+		const [resource] = buildObservations(
+			[{ ...heartRate, value: "Irregular" }],
 			PATIENT_ID,
 			encounter,
 		);
-		expect(text?.valueString).toBe("Irregular");
-		expect(text?.meta).toBeUndefined();
-		expect(text?.category[0]?.coding?.[0]?.code).toBe("vital-signs");
-		expect(bare?.valueQuantity).toEqual({ value: 72 });
-		expect(bare?.meta).toBeUndefined();
+		expect(resource?.valueString).toBeUndefined();
+		expect(resource?.dataAbsentReason).toEqual({
+			coding: [
+				{
+					system: "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+					code: "as-text",
+				},
+			],
+			text: "Irregular",
+		});
+		expect(resource?.meta).toEqual({ profile: [VITAL_SIGNS_PROFILE] });
+	});
+
+	test("throws MissingVitalSignUnitError for a numeric vital sign or BP reading with no unit", () => {
+		const { unit: _unit, ...unitless } = heartRate;
+		expect(() => buildObservations([unitless], PATIENT_ID, encounter)).toThrow(
+			MissingVitalSignUnitError,
+		);
+		const { unit: _bpUnit, ...unitlessBP } = bloodPressure(
+			SYSTOLIC_ID,
+			"systolic",
+			128,
+			AT,
+		);
+		expect(() =>
+			buildObservations([unitlessBP], PATIENT_ID, encounter),
+		).toThrow(MissingVitalSignUnitError);
 	});
 
 	test("codes SpO2 with 2708-6 as well, and claims the oxygen-saturation profile", () => {

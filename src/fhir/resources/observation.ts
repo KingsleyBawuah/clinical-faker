@@ -1,3 +1,4 @@
+import { MissingVitalSignUnitError } from "../../core/errors.ts";
 import type {
 	Encounter as IREncounter,
 	ObservationEntity,
@@ -148,25 +149,37 @@ function buildObservation(
 		context,
 	);
 	const details = interpretationAndRange(observation);
-	if (typeof observation.value !== "number") {
-		return { ...base, ...details, valueString: observation.value };
+	if (!isVitalSign) {
+		return typeof observation.value === "number"
+			? {
+					...base,
+					...details,
+					valueQuantity: quantity(observation.value, observation.unit),
+				}
+			: { ...base, ...details, valueString: observation.value };
 	}
-	const resource: Observation = {
-		...base,
-		...details,
-		valueQuantity: quantity(observation.value, observation.unit),
+	// The validator applies R4's vital-sign profiles by code, and they only
+	// allow a UCUM-coded Quantity — so a text reading becomes an as-text
+	// dataAbsentReason, and a missing unit is an error.
+	const meta = {
+		profile:
+			observation.loincCode === SPO2_LOINC
+				? [VITAL_SIGNS_PROFILE, OXYGEN_SATURATION_PROFILE]
+				: [VITAL_SIGNS_PROFILE],
 	};
-	// The vital-signs profile requires a UCUM-coded quantity, so only a
-	// numeric reading with a unit claims it.
-	if (isVitalSign && observation.unit !== undefined) {
-		resource.meta = {
-			profile:
-				observation.loincCode === SPO2_LOINC
-					? [VITAL_SIGNS_PROFILE, OXYGEN_SATURATION_PROFILE]
-					: [VITAL_SIGNS_PROFILE],
-		};
-	}
-	return resource;
+	return typeof observation.value === "number"
+		? {
+				...base,
+				meta,
+				...details,
+				valueQuantity: vitalSignQuantity(observation, observation.value),
+			}
+		: {
+				...base,
+				meta,
+				...details,
+				dataAbsentReason: asTextAbsentReason(observation.value),
+			};
 }
 
 function observationCode(observation: ObservationEntity): CodeableConcept {
@@ -222,17 +235,32 @@ function bpComponent(
 		? {
 				code: componentCode,
 				...details,
-				valueQuantity: quantity(reading.value, reading.unit),
+				valueQuantity: vitalSignQuantity(reading, reading.value),
 			}
 		: {
 				code: componentCode,
 				...details,
-				// The bp profile only allows a Quantity here, so a free-text reading is kept as the reason's text.
-				dataAbsentReason: {
-					coding: [coding(DATA_ABSENT_REASON_SYSTEM, "as-text")],
-					text: reading.value,
-				},
+				dataAbsentReason: asTextAbsentReason(reading.value),
 			};
+}
+
+/** A vital-sign profile only allows a Quantity, so a free-text reading is kept as the absent reason's text. */
+function asTextAbsentReason(text: string): CodeableConcept {
+	return {
+		coding: [coding(DATA_ABSENT_REASON_SYSTEM, "as-text")],
+		text,
+	};
+}
+
+/** Vital-sign profiles require a UCUM-coded quantity, so a vital with no unit is a generation bug. */
+function vitalSignQuantity(
+	observation: ObservationEntity,
+	value: number,
+): Quantity {
+	if (observation.unit === undefined) {
+		throw new MissingVitalSignUnitError(observation.id, observation.loincCode);
+	}
+	return quantity(value, observation.unit);
 }
 
 function observationBase(

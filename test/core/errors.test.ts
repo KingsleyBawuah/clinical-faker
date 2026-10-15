@@ -7,6 +7,7 @@ import {
 	EmptyHL7MessageError,
 	HL7EncodingDepthError,
 	MalformedMSHSegmentError,
+	MissingVitalSignUnitError,
 	UnresolvedDependencyError,
 } from "../../src/core/errors.ts";
 
@@ -72,5 +73,15 @@ describe("ClinicalFakerError", () => {
 
 		expect(error).toBeInstanceOf(ClinicalFakerError);
 		expect(error.name).toBe("EmptyHL7MessageError");
+	});
+
+	test("MissingVitalSignUnitError extends ClinicalFakerError and carries the observation id and code, not its value", () => {
+		const error = new MissingVitalSignUnitError("obs-1", "8867-4");
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("MissingVitalSignUnitError");
+		expect(error.observationId).toBe("obs-1");
+		expect(error.loincCode).toBe("8867-4");
+		expect(error.message).toContain("obs-1");
 	});
 });

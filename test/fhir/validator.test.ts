@@ -180,19 +180,12 @@ const FIXTURE_OBSERVATIONS: ObservationEntity[] = [
 		unit: "%",
 		effectiveDateTime: AT,
 	},
-	// Text and unitless vital signs — emitted without claiming the vital-signs profile.
+	// A text vital sign — emitted as an as-text dataAbsentReason.
 	{
 		id: "9d0e1f2a-3b4c-4d5e-9f6a-8b9c0d1e2f3a",
 		loincCode: "8867-4",
 		display: "Heart rate",
 		value: "Irregular",
-		effectiveDateTime: LATER,
-	},
-	{
-		id: "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
-		loincCode: "8867-4",
-		display: "Heart rate",
-		value: 80,
 		effectiveDateTime: LATER,
 	},
 	{
