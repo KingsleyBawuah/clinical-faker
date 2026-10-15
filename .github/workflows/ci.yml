@@ -10,6 +10,8 @@ permissions:
 
 env:
   BUN_VERSION: "1.4.0"
+  # Pinned so a new validator release can't change CI results on its own.
+  FHIR_VALIDATOR_VERSION: "7.0.1"
 
 jobs:
   lint:
@@ -51,6 +53,37 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bun test
+
+  fhir-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-package: jre
+          java-version: "21"
+      - name: Cache validator JAR and FHIR package cache
+        id: fhir-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            .fhir-validator/validator_cli.jar
+            ~/.fhir/packages
+          key: fhir-validator-${{ env.FHIR_VALIDATOR_VERSION }}
+      - name: Download validator JAR
+        if: steps.fhir-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .fhir-validator
+          curl -fsSL -o .fhir-validator/validator_cli.jar \
+            "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${FHIR_VALIDATOR_VERSION}/validator_cli.jar"
+      - run: bun test test/fhir/validator.test.ts
+        env:
+          FHIR_VALIDATOR: "1"
 
   build:
     runs-on: ubuntu-latest

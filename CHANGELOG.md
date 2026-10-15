@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Patient.toHL7("ORU^R01")`: compiles the canonical IR into an `ORU^R01` observation-result message — `ORC`/`OBR`/`OBX` segment builders, a shared `ORDER_OBSERVATION` group builder, and `OBX-2` value-type mapping. A patient with no observations produces a valid message with `ORC` + `OBR` and zero `OBX`. `OBR-4` is a fixed LOINC vital-signs panel (`85353-1`) until archetypes can supply a real order. Cross-validated against the independent `hl7v2` parser.
 - `Patient.toHL7("ORM^O01")`: compiles the canonical IR into an `ORM^O01` new-order message (`ORC` with `NW` + `OBR`, no `OBX`, placer order number only), sharing the `ORC`/`OBR` builder with `ORU^R01`. Cross-validated against the independent `hl7v2` parser.
 - FHIR R4 groundwork (`src/fhir`): hand-written R4 resource/datatype types, code and identifier system URIs, and `reference`/`coding`/`codeableConcept`/`humanName`/`address`/`identifier` helpers. Not yet exposed via a public entry point; only `UnmappedFHIRValueError` is exported from the package root.
+- FHIR R4 `Patient`, `Practitioner`, and `Encounter` builders (`src/fhir/resources`), checked against the official HL7 FHIR validator in CI. Not yet exposed via a public entry point — `Patient.toFHIR()` lands with bundle assembly.
 
 ### Changed
 
