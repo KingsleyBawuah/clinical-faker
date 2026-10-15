@@ -8,7 +8,7 @@ Everything starts from a single canonical in-memory patient model (`PatientGraph
 
 - `.toJSON()` — the plain canonical representation.
 - `.toHL7(eventType)` — a pipe-and-hat delimited HL7 v2 message string.
-- `.toFHIR(bundleType)` — a FHIR R4 JSON `Bundle`.
+- `.toFHIR(bundleType?)` — a FHIR R4 `Bundle` as a plain object (`collection` by default, or `transaction`).
 
 Because all three are compiled from the same `PatientGraph`, and every entity gets exactly one deterministically-generated ID, the same seed produces cross-referentially consistent output in every format.
 
@@ -202,9 +202,59 @@ interface HL7ExportOptions {
 
 **Empty-collection handling for `ORU^R01`**: `patient.observations` is `[]` by default until a Phase 4 archetype populates it (see Phase 1's `demographicsNode`/`encounterNode` notes). `.toHL7("ORU^R01")` on such a patient produces a **structurally valid message with an `OBR` and zero `OBX` segments** — legal per the spec (an `ORDER_OBSERVATION` group's `OBSERVATION` sub-group is itself optional/repeating, not required-minimum-one) and consistent with how `.toJSON()`/`.toFHIR()` already handle the same empty-array case: no result to serialize is a legitimate state, not a caller error. `createPatient()` doesn't throw `UnknownArchetypeError`-style validation errors for "not enough data to be interesting" elsewhere in the IR, and `.toHL7()` shouldn't invent a new rule for it here.
 
+## FHIR R4 compilation
+
+**Version**: FHIR R4 (4.0.1), base specification only. US Core profiles stay on the roadmap ("US Core/USCDI profiles") — they add must-support elements and extensions (race, ethnicity, birth sex) the IR doesn't model, so claiming conformance now would promise more than the output delivers.
+
+**Signature**: `.toFHIR(bundleType?: FHIRBundleType)` returns a plain JS object (a `Bundle`), not a string — the same contract `.toJSON()` has, so callers can `JSON.stringify` it or inspect it directly. `FHIRBundleType` is `"collection" | "transaction"`, defaulting to `"collection"`, and is typed incrementally exactly like `HL7EventType`:
+
+- `collection` — a plain set of resources, no `entry.request`. The default: it's what a test fixture or a parser test wants.
+- `transaction` — every entry gets `request: { method: "POST", url: "<ResourceType>" }`, so the bundle can be `POST`ed to a real FHIR server's base URL to load a patient. Entries keep their `urn:uuid` `fullUrl`s, which a server rewrites to its own ids while resolving references between entries — that's what `urn:uuid` temporary ids are for.
+- Not supported: `document` (requires a `Composition` as the first entry, plus `identifier`/`date`), `message` (requires a `MessageHeader`), and `searchset`/`history` (server responses, not something a client generates). Bundle type codes and the "`entry.request` mandatory for batch/transaction/history, otherwise prohibited" rule confirmed against the R4 Bundle page.
+
+**Resources emitted** — one per IR entity, all compiled from the same `PatientGraph`:
+
+| IR | FHIR R4 resource | Required by R4 (min 1) | Fixed values this library supplies |
+| --- | --- | --- | --- |
+| `PatientGraph` + `Demographics` | `Patient` | — | — |
+| `Provider` | `Practitioner` | — | — |
+| `Encounter` | `Encounter` | `status`, `class` | `status`: `finished` when `period.end` exists, else `in-progress`. `class`: `v3-ActCode` `IMP`/`AMB`/`EMER` |
+| `ConditionEntity` | `Condition` | `subject` | `clinicalStatus` `active`, `verificationStatus` `confirmed`, `category` `encounter-diagnosis` |
+| `ObservationEntity` | `Observation` | `status`, `code` | `status` `final`; `category` `vital-signs` for vital-sign codes, else `laboratory` |
+| `MedicationEntity` | `MedicationRequest` | `status`, `intent`, `medication[x]`, `subject` | `status` `active`, `intent` `order`; `sig` → `dosageInstruction[0].text` |
+| `AllergyEntity` | `AllergyIntolerance` | `patient`; `reaction.manifestation` (1..*) when a reaction exists | `clinicalStatus` `active`, `verificationStatus` `confirmed`; substance/reaction as text-only `CodeableConcept`s (the IR has no coded substance) |
+
+Required elements and status/intent codes confirmed against each resource's R4 page. `clinicalStatus` is supplied on `Condition`/`AllergyIntolerance` because R4's invariants make it mandatory whenever `verificationStatus` isn't `entered-in-error`. `encounter-diagnosis` (not `problem-list-item`) because the IR's `rank` (`primary`/`secondary`) describes a diagnosis *for an encounter*, and each `Condition` references that encounter.
+
+**Blood pressure is a panel in FHIR, two separate values in the IR.** R4's core Vital Signs profile — which the spec says an implementation SHALL conform to for any of its listed vital-sign codes — represents blood pressure as one `Observation` coded `85354-9` with `8480-6` (systolic) and `8462-4` (diastolic) as `component`s, not two standalone `Observation`s. HL7 v2 is the opposite: two separate `OBX` segments are normal. The IR keeps its current shape (one `ObservationEntity` per value, matching `OBX` and `vitalsProjection.ts`), and the FHIR builder pairs a systolic and diastolic reading sharing the same `effectiveDateTime` into one panel. An unpaired reading still becomes a panel, with `dataAbsentReason` on the missing component — the profile's component table allows that. Changing the IR to store a BP pair as one entity was considered and rejected: it would push a FHIR-specific shape into HL7 output and `.toJSON()`, which don't want it.
+
+**Vital-signs profile requirements** this implies for every vital-sign `Observation`: `category` `vital-signs`, `subject`, `effectiveDateTime`, and a `valueQuantity` with the profile's UCUM unit (or `dataAbsentReason`) — all of which the IR already carries. A vital-sign `Observation` also gets `meta.profile` pointing at the core vital-signs profile URL, so the validator checks it against that profile explicitly instead of relying on code-based detection.
+
+**Code systems and identifier systems**:
+
+| Concept | System URI | Source |
+| --- | --- | --- |
+| LOINC | `http://loinc.org` | R4 terminologies page |
+| UCUM | `http://unitsofmeasure.org` | R4 terminologies page |
+| RxNorm | `http://www.nlm.nih.gov/research/umls/rxnorm` | R4 terminologies page |
+| Encounter class | `http://terminology.hl7.org/CodeSystem/v3-ActCode` | R4 ActEncounterCode value set |
+| Interpretation (`H`/`L`/`N`) | `http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation` | R4 observation-interpretation value set |
+| ICD-10-CM | `http://hl7.org/fhir/sid/icd-10-cm` | *Secondary source only* (HL7's CQL IG) — confirm with the validator in the PR that uses it |
+| Observation category | `http://terminology.hl7.org/CodeSystem/observation-category` | *Conflicting sources* — the R4 terminologies page lists an older `http://hl7.org/fhir/observation-category`; the validator settles it in the PR that uses it |
+| NPI | `http://hl7.org/fhir/sid/us-npi` | *Unverified* — confirm with the validator in the PR that uses it |
+| MRN | `urn:clinical-faker:mrn` | This library's own namespace. A URN, not an `https://` URL, so it can never collide with a real organization's domain |
+
+The IR's `Identifier.assigningAuthority` (`"NPI"`, `"clinical-faker"`) maps to these URIs through an exhaustive mapping in the FHIR layer, the same pattern as HL7's `mappings/` — the IR stays format-neutral.
+
+**Typed with hand-written interfaces, not `@types/fhir`.** Only the 8 resource types and the handful of datatypes above are needed. `@types/fhir` would have to be a runtime `dependency` (its types appear in this library's own published `.d.ts`), which breaks the zero-runtime-dependency policy for consumers, and it models every element of every resource as optional — exactly the opposite of "required fields are non-optional TypeScript parameters". Hand-written interfaces make R4's required elements required.
+
+**Determinism**: no wall-clock time anywhere. `Bundle.id` is a seeded UUID from a dedicated forked stream (like `MSH-10`); `Bundle.timestamp` is omitted (optional for `collection`/`transaction`). The same seed and bundle type always produce a deep-equal object.
+
 ## FHIR R4 referential integrity
 
-Each entity (Patient, Encounter, Condition, Observation, MedicationRequest) is assigned exactly one deterministic ID at DAG-resolution time via `generateSeededUUID(prng)`, stored once in the canonical IR, and reused verbatim as `urn:uuid:<id>` for both a bundle entry's `fullUrl` and every `Reference` that points at it. "Validated" FHIR output means required fields are non-optional TypeScript parameters on the builder functions (malformed shapes are compile-time errors) plus a handful of cheap structural assertions — not a full StructureDefinition/JSON-Schema runtime validator, in keeping with the zero-runtime-schema-footprint goal.
+**Gap found during Phase 3 design**: the IR as built in Phase 1 only gives `PatientGraph` and `Encounter` an `id` — `ConditionEntity`, `ObservationEntity`, `MedicationEntity`, `AllergyEntity`, and `Provider` have none, so the sentence below wasn't actually true yet. PR 3a adds a required `id: string` to each. They're empty arrays until Phase 4, so no generation code changes now; Phase 4's nodes assign ids via `generateSeededUUID` as they create entities. `Provider` gets its id in `encounterNode`, which already creates it. The FHIR builder never invents an id — if it did, `.toFHIR()` and a future `.toJSON()` consumer would disagree on which id belongs to which entity.
+
+Each entity (Patient, Practitioner, Encounter, Condition, Observation, MedicationRequest, AllergyIntolerance) is assigned exactly one deterministic ID at DAG-resolution time via `generateSeededUUID(prng)`, stored once in the canonical IR, and reused verbatim as `urn:uuid:<id>` for both a bundle entry's `fullUrl` and every `Reference` that points at it. "Validated" FHIR output means required fields are non-optional TypeScript parameters on the builder functions (malformed shapes are compile-time errors) plus a handful of cheap structural assertions — not a full StructureDefinition/JSON-Schema runtime validator, in keeping with the zero-runtime-schema-footprint goal.
 
 **Why a seeded UUID instead of `crypto.randomUUID()`**: `generateSeededUUID` pulls bytes from a node's own Mulberry32 stream and formats them to look like a standard UUID, rather than using real randomness. FHIR requires every resource to have an `id`, and cross-references within a bundle use `urn:uuid:<id>` — a hard requirement of the spec, not a stylistic choice. A real random UUID would satisfy the *format*, but would break the library's core guarantee: the same seed has to produce the exact same patient every time, including the exact same IDs, so a test asserting "patient seed 42 has this specific Encounter ID" doesn't flake between runs. Deriving the UUID's bytes from the seeded stream instead of real randomness is what makes "same seed in, byte-identical FHIR bundle out" actually true.
 
@@ -240,7 +290,7 @@ All four are free and require no API key or account — confirmed by querying ea
 Round-trip tests (serialize, then split by delimiter and confirm fields match the source data) only prove our HL7/FHIR builders are internally consistent with our own serializer — they can't catch a case where our output is subtly non-conformant to the actual spec, since the same misunderstanding would produce both the message and the test that checks it. To catch that class of bug, generated output gets fed into independent, unrelated implementations as part of the test suite for those phases:
 
 - **HL7 v2**: [`hl7v2`](https://github.com/panates/hl7v2) (npm, MIT) — chosen over Redox's `@redox-opensource/redox-hl7-v2` (also real and viable, verified via the npm registry and `gh api`, but plain JS and its last publish is older) because `hl7v2` is TypeScript-native (matches this project's stack) and actively maintained (pushed April 2026 at the time of checking), with parser, serializer, validator, server, and client support. **Implemented in PR 2c** (`hl7v2@1.9.0`, plus its `hl7v2-dictionary@1.9.0` peer dependency — peer dependencies aren't auto-installed, so both are listed explicitly in `devDependencies`), which also verified `dist/index.js` never references `hl7v2` (`grep -c hl7v2 dist/index.js` → `0`), confirming this doesn't touch the zero-runtime-dependency policy for real, not just by construction. `HL7Message.parse()`'s actual runtime behavior was probed directly rather than trusted from the README: `field.getValue()` on a composite field returns the first component's raw value in the installed version, not the semantic `{ familyName, givenName }`-shaped object the README's own example shows — the cross-validation test's assertions are grounded in the former, confirmed live.
-- **FHIR R4**: the official HL7 FHIR reference validator, via `fhir-validator-wrapper` — maintained under the official `github.com/FHIR` org by Grahame Grieve, FHIR's technical lead. This is the actual reference implementation the FHIR community uses to certify conformance, not a third-party approximation.
+- **FHIR R4**: the official HL7 FHIR reference validator, via `fhir-validator-wrapper` — maintained under the official `github.com/FHIR` org by Grahame Grieve, FHIR's technical lead. This is the actual reference implementation the FHIR community uses to certify conformance, not a third-party approximation. **Checked during Phase 3 design** (`fhir-validator-wrapper@1.4.0`, read from the published package itself): Apache-2.0, zero runtime dependencies, plain CommonJS with no bundled TypeScript types — so the test harness needs a small hand-written `.d.ts` declaring only the methods it calls (`start`/`validate`/`stop`), with an `OperationOutcome` result type rather than `any`. It needs Java 8+ and downloads the validator JAR (~300 MB) from GitHub on first `start()`; `start()` requires a `txServer`. **Plan**: run with `-tx n/a` (no terminology server) so CI never depends on `tx.fhir.org` being up — structure, cardinality, invariants, and profiles are still fully checked, but whether a code exists in its code system is not (*per FHIR community chat archives; confirm in PR 3b*). Code correctness is already covered separately by the NLM checks in "Ontology data-accuracy verification". The validator test is skipped unless an env var is set, so `bun test` stays fast and Java-free locally; a dedicated CI job sets it up with `actions/setup-java` and caches the JAR and the FHIR package cache between runs.
 
 Both are **devDependencies only, used in tests** — never bundled into the published package, so this doesn't touch the zero-runtime-dependency policy. The FHIR validator wraps a Java tool, so its CI job needs a JVM (`actions/setup-java`), added when the FHIR compilation phase starts.
 
