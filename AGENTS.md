@@ -39,3 +39,17 @@ Formatting and linting are handled by [Biome](https://biomejs.dev/) (`biome.json
 ## Zero-dependency policy
 
 No runtime `dependencies` in `package.json` — ever. `devDependencies` are limited to TypeScript and test tooling. If a task seems to need a third-party runtime package, that's a signal to reconsider the approach, not to add the dependency.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `GLOSSARY.md` plus `docs/adr/`, alongside `docs/architecture.md` and `docs/implementation.md`. See `docs/agents/domain.md`.
