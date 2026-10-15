@@ -10,14 +10,15 @@ import type {
 	ObservationEntity,
 	PatientGraph,
 } from "../../src/entities/types.ts";
-import { buildAllergyIntolerance } from "../../src/fhir/resources/allergyIntolerance.ts";
 import { buildCondition } from "../../src/fhir/resources/condition.ts";
 import { buildEncounter } from "../../src/fhir/resources/encounter.ts";
-import { buildMedicationRequest } from "../../src/fhir/resources/medicationRequest.ts";
 import { buildObservations } from "../../src/fhir/resources/observation.ts";
-import { buildPatient } from "../../src/fhir/resources/patient.ts";
-import { buildPractitioner } from "../../src/fhir/resources/practitioner.ts";
-import type { FHIRResource } from "../../src/fhir/types.ts";
+import { toFHIR } from "../../src/fhir/toFHIR.ts";
+import type {
+	Bundle,
+	FHIRBundleType,
+	FHIRResource,
+} from "../../src/fhir/types.ts";
 import { createPatient } from "../../src/generator.ts";
 
 /**
@@ -62,6 +63,7 @@ function isExpectedWarning(issue: string): boolean {
 			NO_TERMINOLOGY_SERVICE.some((phrase) => issue.includes(phrase)))
 	);
 }
+const BUNDLE_TYPES: FHIRBundleType[] = ["collection", "transaction"];
 const ENCOUNTER_CLASSES: EncounterClass[] = [
 	"inpatient",
 	"outpatient",
@@ -74,32 +76,9 @@ function describeIssue(issue: OperationOutcomeIssue): string {
 	return `${issue.severity} @ ${where ?? "?"}: ${message}`;
 }
 
-/** Every resource the builders produce for a patient, with clinical entities attached to its first encounter. */
+/** Every resource in a patient's bundle, checked one by one for precise failure messages. */
 function buildResources(graph: PatientGraph): FHIRResource[] {
-	const [first] = graph.encounters;
-	const clinical: FHIRResource[] =
-		first === undefined
-			? []
-			: [
-					...graph.conditions.map((condition) =>
-						buildCondition(condition, graph.id, first.id),
-					),
-					...buildObservations(graph.observations, graph.id, first),
-					...graph.medications.map((medication) =>
-						buildMedicationRequest(medication, graph.id, first.id),
-					),
-				];
-	return [
-		buildPatient(graph.id, graph.demographics),
-		...graph.encounters.flatMap((encounter) => [
-			buildPractitioner(encounter.attendingProvider),
-			buildEncounter(encounter, graph.id),
-		]),
-		...clinical,
-		...graph.allergies.map((allergy) =>
-			buildAllergyIntolerance(allergy, graph.id),
-		),
-	];
+	return toFHIR(graph).entry.map((entry) => entry.resource);
 }
 
 // Hand-built until Phase 4's archetypes generate these — synthetic values only.
@@ -260,7 +239,7 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 			.filter((issue) => !isExpectedWarning(issue));
 	}
 
-	async function expectValid(resource: FHIRResource): Promise<void> {
+	async function expectValid(resource: FHIRResource | Bundle): Promise<void> {
 		const problems = await problemsWith(resource);
 		expect(
 			problems,
@@ -356,6 +335,21 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 				)) {
 					await expectValid(resource);
 				}
+			},
+			VALIDATE_TIMEOUT_MS,
+		);
+	}
+
+	for (const bundleType of BUNDLE_TYPES) {
+		test(
+			`seed 42 with clinical fixtures: a whole ${bundleType} bundle validates`,
+			async () => {
+				await expectValid(
+					toFHIR(
+						withClinicalFixtures(createPatient({ seed: 42 }).toJSON()),
+						bundleType,
+					),
+				);
 			},
 			VALIDATE_TIMEOUT_MS,
 		);

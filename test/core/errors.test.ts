@@ -8,6 +8,7 @@ import {
 	HL7EncodingDepthError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
+	NoEncounterForClinicalDataError,
 	UnresolvedDependencyError,
 } from "../../src/core/errors.ts";
 
@@ -83,5 +84,14 @@ describe("ClinicalFakerError", () => {
 		expect(error.observationId).toBe("obs-1");
 		expect(error.loincCode).toBe("8867-4");
 		expect(error.message).toContain("obs-1");
+	});
+
+	test("NoEncounterForClinicalDataError extends ClinicalFakerError and carries only the patient id", () => {
+		const error = new NoEncounterForClinicalDataError("patient-1");
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("NoEncounterForClinicalDataError");
+		expect(error.patientId).toBe("patient-1");
+		expect(error.message).toContain("patient-1");
 	});
 });
