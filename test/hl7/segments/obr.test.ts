@@ -6,6 +6,7 @@ const ORDER: HL7Order = {
 	placerOrderNumber: "PLACER1",
 	fillerOrderNumber: "FILLER1",
 	orderingProvider: {
+		id: "provider-1",
 		identifier: { value: "1234567893", assigningAuthority: "NPI" },
 		firstName: "Jane",
 		lastName: "Baker",

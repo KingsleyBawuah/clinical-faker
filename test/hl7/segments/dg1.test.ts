@@ -9,6 +9,7 @@ const D = STANDARD_HL7_DELIMITERS;
 describe("buildDG1Segment", () => {
 	test("places setId at DG1-1, the coded diagnosis at DG1-3, and priority at DG1-15, defaulting DG1-6 to Admitting", () => {
 		const condition: ConditionEntity = {
+			id: "condition-1",
 			code: "I10",
 			display: "Essential hypertension",
 			rank: "primary",
@@ -40,6 +41,7 @@ describe("buildDG1Segment", () => {
 
 	test("maps a secondary condition's rank to DG1-15's priority 2", () => {
 		const condition: ConditionEntity = {
+			id: "condition-2",
 			code: "E78.5",
 			display: "Hyperlipidemia, unspecified",
 			rank: "secondary",

@@ -84,9 +84,10 @@ interface PatientGraph {
   allergies: AllergyEntity[];
 }
 
-interface Identifier { value: string; assigningAuthority: string }   // HL7 CX / FHIR Identifier — every PID-3/PV1-7/PV1-17-style ID needs an assigning authority, not just a bare string
+type AssigningAuthority = 'NPI' | 'clinical-faker';   // closed, so the FHIR layer maps each to a system URI exhaustively
+interface Identifier { value: string; assigningAuthority: AssigningAuthority }   // HL7 CX / FHIR Identifier — every PID-3/PV1-7/PV1-17-style ID needs an assigning authority, not just a bare string
 interface Address { line: string; city: string; state: string; postalCode: string; country: string }   // HL7 XAD / FHIR Address
-interface Provider { identifier: Identifier; firstName: string; lastName: string }   // HL7 XCN / FHIR Practitioner reference
+interface Provider { id: string; identifier: Identifier; firstName: string; lastName: string }   // HL7 XCN / FHIR Practitioner reference
 
 interface Demographics {
   firstName: string; lastName: string;
@@ -105,11 +106,13 @@ interface Encounter {
 }
 
 interface ConditionEntity {
+  id: string;
   code: string; display: string; onsetDate?: string;
   rank: 'primary' | 'secondary';   // derived directly from the archetype's ConditionSpec.probability (1.0 = primary, <1.0 = comorbidity) — see "Generation plausibility invariants"
 }
 
 interface ObservationEntity {
+  id: string;
   loincCode: string; display: string;
   value: number | string; unit?: string;
   effectiveDateTime: string;                          // HL7 OBX-14 / FHIR Observation.effectiveDateTime
@@ -117,9 +120,9 @@ interface ObservationEntity {
   abnormalFlag?: 'H' | 'L' | 'N';                      // HL7 OBX-8 / FHIR Observation.interpretation — always derived from value vs referenceRange, never independently generated
 }
 
-interface MedicationEntity { name: string; rxcui: string; sig: string }
+interface MedicationEntity { id: string; name: string; rxcui: string; sig: string }
 
-interface AllergyEntity { substance: string; reaction?: string; criticality?: 'low' | 'high' | 'unable-to-assess' }
+interface AllergyEntity { id: string; substance: string; reaction?: string; criticality?: 'low' | 'high' | 'unable-to-assess' }
 ```
 
 - **Demographics** use `gender: 'male' | 'female' | 'other' | 'unknown'` — matching FHIR's `Patient.gender` directly. Biological/birth sex, if ever needed, is a separate future US Core extension field, not conflated with `gender`.
@@ -252,7 +255,7 @@ The IR's `Identifier.assigningAuthority` (`"NPI"`, `"clinical-faker"`) maps to t
 
 ## FHIR R4 referential integrity
 
-**Gap found during Phase 3 design**: the IR as built in Phase 1 only gives `PatientGraph` and `Encounter` an `id` — `ConditionEntity`, `ObservationEntity`, `MedicationEntity`, `AllergyEntity`, and `Provider` have none, so the sentence below wasn't actually true yet. PR 3a adds a required `id: string` to each. They're empty arrays until Phase 4, so no generation code changes now; Phase 4's nodes assign ids via `generateSeededUUID` as they create entities. `Provider` gets its id in `encounterNode`, which already creates it. The FHIR builder never invents an id — if it did, `.toFHIR()` and a future `.toJSON()` consumer would disagree on which id belongs to which entity.
+**Gap found during Phase 3 design, closed in PR 3a**: the IR as built in Phase 1 only gave `PatientGraph` and `Encounter` an `id`. PR 3a added a required `id: string` to `ConditionEntity`, `ObservationEntity`, `MedicationEntity`, `AllergyEntity`, and `Provider`. They're empty arrays until Phase 4, so no generation code changes now; Phase 4's nodes assign ids via `generateSeededUUID` as they create entities. `Provider` gets its id in `encounterNode`, which already creates it, drawn from a forked `providerId` stream so every other seeded encounter field is unchanged. The FHIR builder never invents an id — if it did, `.toFHIR()` and a future `.toJSON()` consumer would disagree on which id belongs to which entity.
 
 Each entity (Patient, Practitioner, Encounter, Condition, Observation, MedicationRequest, AllergyIntolerance) is assigned exactly one deterministic ID at DAG-resolution time via `generateSeededUUID(prng)`, stored once in the canonical IR, and reused verbatim as `urn:uuid:<id>` for both a bundle entry's `fullUrl` and every `Reference` that points at it. "Validated" FHIR output means required fields are non-optional TypeScript parameters on the builder functions (malformed shapes are compile-time errors) plus a handful of cheap structural assertions — not a full StructureDefinition/JSON-Schema runtime validator, in keeping with the zero-runtime-schema-footprint goal.
 

@@ -1,7 +1,10 @@
+/** Every authority this library issues identifiers under. A closed union so the FHIR layer can map each one to its system URI exhaustively. */
+export type AssigningAuthority = "NPI" | "clinical-faker";
+
 /** HL7 CX / FHIR Identifier — every id in this domain needs an assigning authority, not just a bare string. */
 export interface Identifier {
 	value: string;
-	assigningAuthority: string;
+	assigningAuthority: AssigningAuthority;
 }
 
 /** HL7 XAD / FHIR Address. */
@@ -15,6 +18,8 @@ export interface Address {
 
 /** HL7 XCN / FHIR Practitioner reference. */
 export interface Provider {
+	/** Seeded UUID; reused verbatim as the FHIR `Practitioner` id. */
+	id: string;
 	identifier: Identifier;
 	firstName: string;
 	lastName: string;
@@ -51,6 +56,8 @@ export interface Encounter {
 export type ConditionRank = "primary" | "secondary";
 
 export interface ConditionEntity {
+	/** Seeded UUID, assigned when the entity is generated; reused verbatim as the FHIR resource id. */
+	id: string;
 	code: string;
 	display: string;
 	onsetDate?: string;
@@ -62,6 +69,8 @@ export interface ConditionEntity {
 export type AbnormalFlag = "H" | "L" | "N";
 
 export interface ObservationEntity {
+	/** Seeded UUID, assigned when the entity is generated; reused verbatim as the FHIR resource id. */
+	id: string;
 	loincCode: string;
 	display: string;
 	value: number | string;
@@ -75,6 +84,8 @@ export interface ObservationEntity {
 
 /** Combined `{ name, rxcui, sig }` shape matches how RxNorm itself models a specific strength+form as one concept. */
 export interface MedicationEntity {
+	/** Seeded UUID, assigned when the entity is generated; reused verbatim as the FHIR resource id. */
+	id: string;
 	name: string;
 	rxcui: string;
 	sig: string;
@@ -83,6 +94,8 @@ export interface MedicationEntity {
 export type AllergyCriticality = "low" | "high" | "unable-to-assess";
 
 export interface AllergyEntity {
+	/** Seeded UUID, assigned when the entity is generated; reused verbatim as the FHIR resource id. */
+	id: string;
 	substance: string;
 	reaction?: string;
 	criticality?: AllergyCriticality;

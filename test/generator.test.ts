@@ -63,6 +63,7 @@ describe("createPatient", () => {
 		const patient = createPatient({ seed: 7 });
 		const replacement = [
 			{
+				id: "observation-1",
 				loincCode: "8867-4",
 				display: "Heart rate",
 				value: 88,

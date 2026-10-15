@@ -13,6 +13,7 @@ function fieldsOf(segmentText: string | undefined): string[] {
 describe("buildAL1Segment", () => {
 	test("places setId at AL1-1, the uncoded allergen at AL1-3, severity at AL1-4, and reaction at AL1-5", () => {
 		const allergy: AllergyEntity = {
+			id: "allergy-1",
 			substance: "Penicillin",
 			reaction: "Hives",
 			criticality: "high",
@@ -29,7 +30,7 @@ describe("buildAL1Segment", () => {
 	});
 
 	test("omits AL1-4/AL1-5 entirely when criticality/reaction aren't present", () => {
-		const allergy: AllergyEntity = { substance: "Latex" };
+		const allergy: AllergyEntity = { id: "allergy-2", substance: "Latex" };
 		const [segmentText] = serializeMessage([buildAL1Segment(allergy, 1)]).split(
 			"\r",
 		);

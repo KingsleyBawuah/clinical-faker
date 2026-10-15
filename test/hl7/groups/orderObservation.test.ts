@@ -12,7 +12,13 @@ function observation(
 	loincCode: string,
 	effectiveDateTime: string,
 ): ObservationEntity {
-	return { loincCode, display: loincCode, value: 1, effectiveDateTime };
+	return {
+		id: `observation-${loincCode}`,
+		loincCode,
+		display: loincCode,
+		value: 1,
+		effectiveDateTime,
+	};
 }
 
 describe("buildOrderObservationGroup", () => {

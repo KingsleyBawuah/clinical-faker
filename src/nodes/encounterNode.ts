@@ -128,6 +128,9 @@ export function createEncounterNode(prng: PRNG): DAGNode<Encounter> {
 				period,
 				...(location === undefined ? {} : { location }),
 				attendingProvider: {
+					// A forked stream, so drawing this id leaves every other
+					// seeded field of the encounter unchanged.
+					id: generateSeededUUID(prng.fork("providerId")),
 					identifier: generateProviderIdentifier(prng),
 					// A gender is sampled purely to pick a first-name pool — a
 					// Provider has no gender field of its own.

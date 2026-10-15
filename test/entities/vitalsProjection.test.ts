@@ -6,6 +6,7 @@ function observation(
 	overrides: Partial<ObservationEntity> & Pick<ObservationEntity, "loincCode">,
 ): ObservationEntity {
 	return {
+		id: "observation-1",
 		display: "test observation",
 		value: 0,
 		effectiveDateTime: "2024-01-01T00:00:00.000Z",
@@ -53,6 +54,7 @@ describe("projectVitals", () => {
 	test("prefers the most recent reading by effectiveDateTime, not array order", () => {
 		const observations: ObservationEntity[] = [
 			observation({
+				id: "observation-1",
 				loincCode: "8867-4",
 				value: 60,
 				effectiveDateTime: "2024-01-01T10:00:00.000Z",
@@ -60,6 +62,7 @@ describe("projectVitals", () => {
 			// Appears later in the array but is chronologically earlier — must
 			// not win just because of array position.
 			observation({
+				id: "observation-2",
 				loincCode: "8867-4",
 				value: 95,
 				effectiveDateTime: "2024-01-01T08:00:00.000Z",

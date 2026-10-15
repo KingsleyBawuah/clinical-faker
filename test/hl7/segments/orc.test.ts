@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { Provider } from "../../../src/entities/types.ts";
 import type { HL7Order } from "../../../src/hl7/order.ts";
 import { buildORCSegment } from "../../../src/hl7/segments/orc.ts";
 
-const PROVIDER = {
+const PROVIDER: Provider = {
+	id: "provider-1",
 	identifier: { value: "1234567893", assigningAuthority: "NPI" },
 	firstName: "Jane",
 	lastName: "Baker",

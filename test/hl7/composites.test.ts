@@ -52,6 +52,7 @@ describe("cx", () => {
 describe("xcn", () => {
 	test("serializes as id number ^ family name ^ given name", () => {
 		const field = xcn({
+			id: "provider-1",
 			identifier: { value: "1234567893", assigningAuthority: "NPI" },
 			firstName: "Jane",
 			lastName: "Baker",
