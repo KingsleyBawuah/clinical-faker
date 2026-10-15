@@ -7,6 +7,8 @@ import type {
 	Encounter,
 	PatientGraph,
 } from "./entities/types.ts";
+import { toFHIR } from "./fhir/toFHIR.ts";
+import type { Bundle, FHIRBundleType } from "./fhir/types.ts";
 import type { HL7EventType, HL7ExportOptions } from "./hl7/exportOptions.ts";
 import { toHL7 } from "./hl7/toHL7.ts";
 import { createDemographicsNode } from "./nodes/demographicsNode.ts";
@@ -22,6 +24,7 @@ export interface GenerationOptions {
 export interface Patient extends PatientGraph {
 	toJSON(): PatientJSON;
 	toHL7(eventType: HL7EventType, options?: HL7ExportOptions): string;
+	toFHIR(bundleType?: FHIRBundleType): Bundle;
 }
 
 function generateRandomSeed(): number {
@@ -119,6 +122,9 @@ export function createPatient(options: GenerationOptions = {}): Patient {
 		},
 		toHL7(eventType: HL7EventType, options?: HL7ExportOptions): string {
 			return toHL7(this, eventType, options);
+		},
+		toFHIR(bundleType?: FHIRBundleType): Bundle {
+			return toFHIR(this, bundleType);
 		},
 	};
 }

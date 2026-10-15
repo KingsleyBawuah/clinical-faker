@@ -10,6 +10,7 @@ export {
 	InvalidSeedError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
+	NoEncounterForClinicalDataError,
 	UnmappedFHIRValueError,
 	UnmappedHL7ValueError,
 	UnresolvedDependencyError,
@@ -34,6 +35,7 @@ export type {
 	Provider,
 } from "./entities/types.ts";
 export type { VitalsSummary } from "./entities/vitalsProjection.ts";
+export type { Bundle, FHIRBundleType } from "./fhir/types.ts";
 export type { GenerationOptions, Patient } from "./generator.ts";
 export { createPatient } from "./generator.ts";
 export type { HL7EventType, HL7ExportOptions } from "./hl7/exportOptions.ts";

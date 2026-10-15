@@ -163,6 +163,23 @@ export class MissingVitalSignUnitError extends ClinicalFakerError {
 	}
 }
 
+/**
+ * Thrown by `.toFHIR()` when a patient has conditions, observations, or
+ * medications but no encounter to attach them to — R4's `Condition`,
+ * `Observation`, and `MedicationRequest` all need one here. Carries the
+ * patient id only.
+ */
+export class NoEncounterForClinicalDataError extends ClinicalFakerError {
+	readonly patientId: string;
+
+	constructor(patientId: string) {
+		super(
+			`Patient "${patientId}" has conditions, observations, or medications but no encounter to attach them to`,
+		);
+		this.patientId = patientId;
+	}
+}
+
 /** Thrown when an `HL7ExportOptions.messageControlId` override exceeds `MSH-10`'s confirmed 20-character `ST`-datatype maximum. */
 export class InvalidMessageControlIdError extends ClinicalFakerError {
 	readonly messageControlId: string;

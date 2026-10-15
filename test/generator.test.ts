@@ -166,4 +166,20 @@ describe("createPatient", () => {
 		const message = patient.toHL7("ADT^A01", { messageControlId: "custom-id" });
 		expect(message.split("|")[9]).toBe("custom-id");
 	});
+
+	test("toFHIR() defaults to a collection bundle keyed by the patient's own id", () => {
+		const patient = createPatient({ seed: 7 });
+		const bundle = patient.toFHIR();
+		expect(bundle.type).toBe("collection");
+		expect(bundle.entry[0]?.resource).toMatchObject({
+			resourceType: "Patient",
+			id: patient.id,
+		});
+	});
+
+	test("toFHIR() is deterministic: the same seed and bundle type produce a deep-equal bundle", () => {
+		expect(createPatient({ seed: 7 }).toFHIR("transaction")).toEqual(
+			createPatient({ seed: 7 }).toFHIR("transaction"),
+		);
+	});
 });
