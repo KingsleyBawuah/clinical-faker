@@ -9,6 +9,7 @@ import {
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
 	NoEncounterForClinicalDataError,
+	UnknownArchetypeError,
 	UnresolvedDependencyError,
 } from "../../src/core/errors.ts";
 
@@ -93,5 +94,22 @@ describe("ClinicalFakerError", () => {
 		expect(error.name).toBe("NoEncounterForClinicalDataError");
 		expect(error.patientId).toBe("patient-1");
 		expect(error.message).toContain("patient-1");
+	});
+
+	test("UnknownArchetypeError extends ClinicalFakerError and names the unknown archetype and the valid ones", () => {
+		const error = new UnknownArchetypeError("Missing", ["Alpha", "Beta"]);
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("UnknownArchetypeError");
+		expect(error.archetype).toBe("Missing");
+		expect(error.validNames).toEqual(["Alpha", "Beta"]);
+		expect(error.message).toContain('"Missing"');
+		expect(error.message).toContain("Alpha, Beta");
+	});
+
+	test("UnknownArchetypeError says so when there are no valid names", () => {
+		const error = new UnknownArchetypeError("Missing", []);
+
+		expect(error.message).toContain("(none)");
 	});
 });
