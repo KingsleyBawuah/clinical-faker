@@ -12,6 +12,7 @@ import {
 const ICD10CM_FORMAT = /^[A-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$/;
 const LOINC_FORMAT = /^[1-9][0-9]{0,6}-[0-9]$/;
 const RXCUI_FORMAT = /^[1-9][0-9]*$/;
+const MAX_DECIMALS = 4;
 
 function duplicates(values: readonly string[]): string[] {
 	return values.filter((value, index) => values.indexOf(value) !== index);
@@ -55,6 +56,15 @@ describe("ARCHETYPES", () => {
 					expect(mean).toBeGreaterThanOrEqual(clamp.min);
 					expect(mean).toBeLessThanOrEqual(clamp.max);
 					expect(stdDev).toBeGreaterThan(0);
+				},
+			);
+
+			test.each(archetype.observations.map((o) => [o.loincCode, o] as const))(
+				`observation %s rounds to an integer number of decimals in [0, ${MAX_DECIMALS}]`,
+				(_code, observation) => {
+					expect(Number.isInteger(observation.decimals)).toBe(true);
+					expect(observation.decimals).toBeGreaterThanOrEqual(0);
+					expect(observation.decimals).toBeLessThanOrEqual(MAX_DECIMALS);
 				},
 			);
 
