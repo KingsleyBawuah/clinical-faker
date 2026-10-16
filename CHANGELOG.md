@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Patient.toJSON()` output now includes `encounters[].attendingProvider.id`, a seeded UUID. All other seeded values are unchanged.
 - `Identifier.assigningAuthority` is now typed `AssigningAuthority` (`"NPI" | "clinical-faker"`, exported from the package root) instead of `string`.
 - `ConditionEntity`, `ObservationEntity`, `MedicationEntity`, and `AllergyEntity` now require an `id`.
+- `engines.node` raised from `>=18` to `>=22`, the oldest Node.js line still supported upstream (Node 18 and 20 are end-of-life).
 
 ### Fixed
 

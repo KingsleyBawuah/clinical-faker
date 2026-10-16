@@ -94,6 +94,10 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bun run build
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
       - name: Smoke-test built output under plain Node (not Bun)
         run: node scripts/smoke-test-esm.mjs
 
