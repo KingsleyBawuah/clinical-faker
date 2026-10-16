@@ -191,3 +191,21 @@ export class InvalidMessageControlIdError extends ClinicalFakerError {
 		this.messageControlId = messageControlId;
 	}
 }
+
+/**
+ * Thrown when an archetype name isn't in the registry — the runtime fallback
+ * for plain-JS callers and computed strings the type system can't check. See
+ * docs/architecture.md's "Invalid archetype handling".
+ */
+export class UnknownArchetypeError extends ClinicalFakerError {
+	readonly archetype: string;
+	readonly validNames: readonly string[];
+
+	constructor(archetype: string, validNames: readonly string[]) {
+		super(
+			`Unknown archetype "${archetype}". Valid archetypes: ${validNames.length > 0 ? validNames.join(", ") : "(none)"}`,
+		);
+		this.archetype = archetype;
+		this.validNames = validNames;
+	}
+}
