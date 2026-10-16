@@ -48,6 +48,7 @@ export const AdultHypertension = {
 			stdDev: 12,
 			clamp: { min: 60, max: 260 },
 			referenceRange: { low: 90, high: 120 },
+			decimals: 0,
 		},
 		{
 			loincCode: DIASTOLIC_BP_LOINC,
@@ -57,6 +58,7 @@ export const AdultHypertension = {
 			stdDev: 8,
 			clamp: { min: 30, max: 160 },
 			referenceRange: { low: 60, high: 80 },
+			decimals: 0,
 		},
 		{
 			loincCode: "8867-4",
@@ -66,6 +68,7 @@ export const AdultHypertension = {
 			stdDev: 10,
 			clamp: { min: 25, max: 220 },
 			referenceRange: { low: 60, high: 100 },
+			decimals: 0,
 		},
 		{
 			loincCode: "2823-3",
@@ -75,6 +78,7 @@ export const AdultHypertension = {
 			stdDev: 0.4,
 			clamp: { min: 1.5, max: 9 },
 			referenceRange: { low: 3.5, high: 5.1 },
+			decimals: 1,
 		},
 		{
 			loincCode: "2160-0",
@@ -84,6 +88,7 @@ export const AdultHypertension = {
 			stdDev: 0.2,
 			clamp: { min: 0.2, max: 15 },
 			referenceRange: { low: 0.6, high: 1.3 },
+			decimals: 2,
 		},
 	],
 	medications: [

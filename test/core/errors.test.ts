@@ -7,11 +7,14 @@ import {
 	EmptyHL7MessageError,
 	HL7EncodingDepthError,
 	InvalidArchetypeError,
+	InvalidDecimalsError,
+	InvalidProbabilityError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
 	NoEncounterForClinicalDataError,
 	UnknownArchetypeError,
 	UnresolvedDependencyError,
+	UnsatisfiableObservationSpecError,
 } from "../../src/core/errors.ts";
 
 describe("ClinicalFakerError", () => {
@@ -132,5 +135,37 @@ describe("ClinicalFakerError", () => {
 		const error = new UnknownArchetypeError("Missing", []);
 
 		expect(error.message).toContain("(none)");
+	});
+
+	test("InvalidProbabilityError extends ClinicalFakerError and carries the offending probability", () => {
+		const error = new InvalidProbabilityError(-0.5);
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("InvalidProbabilityError");
+		expect(error.probability).toBe(-0.5);
+		expect(error.message).toContain("-0.5");
+	});
+
+	test("UnsatisfiableObservationSpecError extends ClinicalFakerError and carries loincCode, decimals, and clamp", () => {
+		const clamp = { min: 1.2, max: 1.8 };
+		const error = new UnsatisfiableObservationSpecError("8867-4", 0, clamp);
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("UnsatisfiableObservationSpecError");
+		expect(error.loincCode).toBe("8867-4");
+		expect(error.decimals).toBe(0);
+		expect(error.clamp).toEqual(clamp);
+		expect(error.message).toContain("8867-4");
+		expect(error.message).toContain("0 decimal places");
+		expect(error.message).toContain("[1.2, 1.8]");
+	});
+
+	test("InvalidDecimalsError extends ClinicalFakerError and carries the offending decimals", () => {
+		const error = new InvalidDecimalsError(1.5);
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("InvalidDecimalsError");
+		expect(error.decimals).toBe(1.5);
+		expect(error.message).toContain("1.5");
 	});
 });
