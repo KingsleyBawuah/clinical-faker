@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createMulberry32 } from "../../src/core/prng/mulberry32.ts";
 import {
+	CITIES,
 	pickAddress,
 	pickFirstName,
 	pickGender,
 	pickLastName,
+	STREET_NAMES,
 } from "../../src/entities/sampleData.ts";
 import type { Gender } from "../../src/entities/types.ts";
 
@@ -90,5 +92,31 @@ describe("pickAddress", () => {
 		const a = createMulberry32(21);
 		const b = createMulberry32(21);
 		expect(pickAddress(a)).toEqual(pickAddress(b));
+	});
+
+	test("every city tuple has a 2-letter state and a 5-digit ZIP", () => {
+		for (const location of CITIES) {
+			expect(location.city.length).toBeGreaterThan(0);
+			expect(location.state).toMatch(/^[A-Z]{2}$/);
+			expect(location.postalCode).toMatch(/^\d{5}$/);
+		}
+	});
+
+	test("city tuples and street names have no duplicates", () => {
+		const keys = CITIES.map((l) => `${l.city}|${l.state}|${l.postalCode}`);
+		expect(new Set(keys).size).toBe(keys.length);
+		expect(new Set(STREET_NAMES).size).toBe(STREET_NAMES.length);
+	});
+
+	test("excludes 73301, an IRS-only Austin ZIP with no residential delivery", () => {
+		expect(CITIES.map((l) => l.postalCode)).not.toContain("73301");
+	});
+
+	test("only ever produces a city/state/ZIP from the curated list", () => {
+		const prng = createMulberry32(31);
+		for (let i = 0; i < 200; i++) {
+			const { city, state, postalCode } = pickAddress(prng);
+			expect(CITIES).toContainEqual({ city, state, postalCode });
+		}
 	});
 });
