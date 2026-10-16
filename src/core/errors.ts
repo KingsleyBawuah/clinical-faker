@@ -226,3 +226,40 @@ export class InvalidArchetypeError extends ClinicalFakerError {
 		this.receivedType = receivedType;
 	}
 }
+
+/**
+ * Thrown when a probability value passed to sampling is outside [0, 1] or
+ * not a number (e.g. `NaN`).
+ */
+export class InvalidProbabilityError extends ClinicalFakerError {
+	readonly probability: number;
+
+	constructor(probability: number) {
+		super(`Probability must be in [0, 1], got ${probability}`);
+		this.probability = probability;
+	}
+}
+
+/**
+ * Thrown when an observation distribution spec's clamp bounds cannot be
+ * satisfied at its specified decimal precision (i.e. no representable value
+ * fits within `[clamp.min, clamp.max]`).
+ */
+export class UnsatisfiableObservationSpecError extends ClinicalFakerError {
+	readonly loincCode: string;
+	readonly decimals: number;
+	readonly clamp: { readonly min: number; readonly max: number };
+
+	constructor(
+		loincCode: string,
+		decimals: number,
+		clamp: { readonly min: number; readonly max: number },
+	) {
+		super(
+			`No value with ${decimals} decimal places fits clamp [${clamp.min}, ${clamp.max}] for LOINC ${loincCode}`,
+		);
+		this.loincCode = loincCode;
+		this.decimals = decimals;
+		this.clamp = clamp;
+	}
+}

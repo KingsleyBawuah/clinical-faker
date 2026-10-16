@@ -1,3 +1,7 @@
+import {
+	InvalidProbabilityError,
+	UnsatisfiableObservationSpecError,
+} from "../core/errors.ts";
 import type { PRNG } from "../core/prng/types.ts";
 import type { AbnormalFlag } from "../entities/types.ts";
 import type { ObservationDistributionSpec } from "./types.ts";
@@ -9,7 +13,7 @@ import type { ObservationDistributionSpec } from "./types.ts";
  */
 export const MAX_RESAMPLE_ATTEMPTS = 10;
 
-/** Scaled-value slack for float error, e.g. `0.2 * 100` is `20.000000000000004`. */
+/** Scaled-value slack for float error (e.g. 0.2 * 100 = 20.000000000000004): 1e-9 is far above float jitter (~1e-15) yet far below 1. */
 const SCALED_TOLERANCE = 1e-9;
 
 /** Rounds `scaled` with `round`, unless it's already an integer up to float error. */
@@ -26,9 +30,7 @@ function snapScaled(scaled: number, round: (x: number) => number): number {
  */
 export function rollProbability(prng: PRNG, probability: number): boolean {
 	if (!(probability >= 0 && probability <= 1)) {
-		throw new RangeError(
-			`rollProbability: probability (${probability}) must be in [0, 1]`,
-		);
+		throw new InvalidProbabilityError(probability);
 	}
 	// next() is in [0, 1), so 1 is always true and 0 always false.
 	return prng.next() < probability;
@@ -51,8 +53,10 @@ export function sampleObservationValue(
 	const min = snapScaled(clamp.min * scale, Math.ceil) / scale;
 	const max = snapScaled(clamp.max * scale, Math.floor) / scale;
 	if (min > max) {
-		throw new RangeError(
-			`sampleObservationValue: no value with ${decimals} decimal places fits clamp [${clamp.min}, ${clamp.max}] for LOINC ${spec.loincCode}`,
+		throw new UnsatisfiableObservationSpecError(
+			spec.loincCode,
+			decimals,
+			clamp,
 		);
 	}
 

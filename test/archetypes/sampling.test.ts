@@ -6,6 +6,11 @@ import {
 	sampleObservationValue,
 } from "../../src/archetypes/sampling.ts";
 import type { ObservationDistributionSpec } from "../../src/archetypes/types.ts";
+import {
+	ClinicalFakerError,
+	InvalidProbabilityError,
+	UnsatisfiableObservationSpecError,
+} from "../../src/core/errors.ts";
 import { createMulberry32 } from "../../src/core/prng/mulberry32.ts";
 import type { PRNG } from "../../src/core/prng/types.ts";
 
@@ -91,7 +96,15 @@ describe("rollProbability", () => {
 	test("rejects probabilities outside [0, 1]", () => {
 		const prng = createMulberry32(1);
 		for (const probability of [-0.1, 1.1, Number.NaN]) {
-			expect(() => rollProbability(prng, probability)).toThrow(RangeError);
+			expect(() => rollProbability(prng, probability)).toThrow(
+				InvalidProbabilityError,
+			);
+			try {
+				rollProbability(prng, probability);
+			} catch (error) {
+				expect(error).toBeInstanceOf(ClinicalFakerError);
+				expect(error).toBeInstanceOf(InvalidProbabilityError);
+			}
 		}
 	});
 });
@@ -227,7 +240,13 @@ describe("sampleObservationValue", () => {
 		});
 		expect(() =>
 			sampleObservationValue(createMulberry32(1), impossible),
-		).toThrow(RangeError);
+		).toThrow(UnsatisfiableObservationSpecError);
+		try {
+			sampleObservationValue(createMulberry32(1), impossible);
+		} catch (error) {
+			expect(error).toBeInstanceOf(ClinicalFakerError);
+			expect(error).toBeInstanceOf(UnsatisfiableObservationSpecError);
+		}
 	});
 });
 
