@@ -202,10 +202,27 @@ export class UnknownArchetypeError extends ClinicalFakerError {
 	readonly validNames: readonly string[];
 
 	constructor(archetype: string, validNames: readonly string[]) {
+		const sorted = [...validNames].sort();
 		super(
-			`Unknown archetype "${archetype}". Valid archetypes: ${validNames.length > 0 ? validNames.join(", ") : "(none)"}`,
+			`Unknown archetype "${archetype}". Valid archetypes: ${sorted.length > 0 ? sorted.join(", ") : "(none)"}`,
 		);
 		this.archetype = archetype;
-		this.validNames = validNames;
+		this.validNames = sorted;
+	}
+}
+
+/**
+ * Thrown when an archetype is neither a name nor a definition object (e.g.
+ * `null` or a number from a plain-JS caller). Carries only the received
+ * type, never the value itself.
+ */
+export class InvalidArchetypeError extends ClinicalFakerError {
+	readonly receivedType: string;
+
+	constructor(receivedType: string) {
+		super(
+			`An archetype must be a registered name or an ArchetypeDefinition object, got ${receivedType}`,
+		);
+		this.receivedType = receivedType;
 	}
 }

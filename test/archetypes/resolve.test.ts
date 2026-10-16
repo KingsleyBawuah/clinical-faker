@@ -3,6 +3,7 @@ import { resolveArchetype } from "../../src/archetypes/resolve.ts";
 import type { ArchetypeDefinition } from "../../src/archetypes/types.ts";
 import {
 	ClinicalFakerError,
+	InvalidArchetypeError,
 	UnknownArchetypeError,
 } from "../../src/core/errors.ts";
 
@@ -79,4 +80,48 @@ describe("resolveArchetype", () => {
 			UnknownArchetypeError,
 		);
 	});
+
+	test("lists valid names sorted, regardless of registry key order", () => {
+		const unordered: Readonly<Record<string, ArchetypeDefinition>> = {
+			Beta: OTHER_DEFINITION,
+			Alpha: EMPTY_DEFINITION,
+		};
+		let caught: unknown;
+		try {
+			resolveArchetype("Gamma", unordered);
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(UnknownArchetypeError);
+		if (!(caught instanceof UnknownArchetypeError)) return;
+		expect(caught.validNames).toEqual(["Alpha", "Beta"]);
+	});
+
+	// Plain-JS callers can pass anything; these bypass the parameter type on purpose.
+	test.each([
+		["null", null, "null"],
+		["undefined", undefined, "undefined"],
+		["a number", 42, "number"],
+		["a boolean", true, "boolean"],
+		["a function", () => EMPTY_DEFINITION, "function"],
+		["an array", [], "array"],
+	])(
+		"throws InvalidArchetypeError for %s instead of passing it through",
+		(_label, value, receivedType) => {
+			// type-coverage:ignore-next-line
+			const bypassed = value as never;
+			let caught: unknown;
+			try {
+				resolveArchetype(bypassed, REGISTRY);
+			} catch (error) {
+				caught = error;
+			}
+
+			expect(caught).toBeInstanceOf(ClinicalFakerError);
+			expect(caught).toBeInstanceOf(InvalidArchetypeError);
+			if (!(caught instanceof InvalidArchetypeError)) return;
+			expect(caught.receivedType).toBe(receivedType);
+		},
+	);
 });

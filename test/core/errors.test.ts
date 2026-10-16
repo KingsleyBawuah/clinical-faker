@@ -6,6 +6,7 @@ import {
 	DuplicateNodeIdError,
 	EmptyHL7MessageError,
 	HL7EncodingDepthError,
+	InvalidArchetypeError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
 	NoEncounterForClinicalDataError,
@@ -105,6 +106,26 @@ describe("ClinicalFakerError", () => {
 		expect(error.validNames).toEqual(["Alpha", "Beta"]);
 		expect(error.message).toContain('"Missing"');
 		expect(error.message).toContain("Alpha, Beta");
+	});
+
+	test("UnknownArchetypeError lists valid names sorted, whatever order they arrive in", () => {
+		const error = new UnknownArchetypeError("Missing", [
+			"Gamma",
+			"Alpha",
+			"Beta",
+		]);
+
+		expect(error.validNames).toEqual(["Alpha", "Beta", "Gamma"]);
+		expect(error.message).toContain("Alpha, Beta, Gamma");
+	});
+
+	test("InvalidArchetypeError extends ClinicalFakerError and names the received type, not the value", () => {
+		const error = new InvalidArchetypeError("number");
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("InvalidArchetypeError");
+		expect(error.receivedType).toBe("number");
+		expect(error.message).toContain("number");
 	});
 
 	test("UnknownArchetypeError says so when there are no valid names", () => {
