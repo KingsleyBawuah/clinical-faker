@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { AdultHypertension } from "../../src/archetypes/adultHypertension.ts";
 import { ARCHETYPES } from "../../src/archetypes/registry.ts";
 import { resolveArchetype } from "../../src/archetypes/resolve.ts";
+import { MAX_DECIMALS } from "../../src/archetypes/sampling.ts";
 import {
 	DIASTOLIC_BP_LOINC,
 	SYSTOLIC_BP_LOINC,
@@ -12,7 +13,6 @@ import {
 const ICD10CM_FORMAT = /^[A-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$/;
 const LOINC_FORMAT = /^[1-9][0-9]{0,6}-[0-9]$/;
 const RXCUI_FORMAT = /^[1-9][0-9]*$/;
-const MAX_DECIMALS = 4;
 
 function duplicates(values: readonly string[]): string[] {
 	return values.filter((value, index) => values.indexOf(value) !== index);

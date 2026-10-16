@@ -7,6 +7,7 @@ import {
 	EmptyHL7MessageError,
 	HL7EncodingDepthError,
 	InvalidArchetypeError,
+	InvalidDecimalsError,
 	InvalidProbabilityError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
@@ -157,5 +158,14 @@ describe("ClinicalFakerError", () => {
 		expect(error.message).toContain("8867-4");
 		expect(error.message).toContain("0 decimal places");
 		expect(error.message).toContain("[1.2, 1.8]");
+	});
+
+	test("InvalidDecimalsError extends ClinicalFakerError and carries the offending decimals", () => {
+		const error = new InvalidDecimalsError(1.5);
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("InvalidDecimalsError");
+		expect(error.decimals).toBe(1.5);
+		expect(error.message).toContain("1.5");
 	});
 });

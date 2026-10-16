@@ -1,10 +1,16 @@
 import {
+	InvalidDecimalsError,
 	InvalidProbabilityError,
 	UnsatisfiableObservationSpecError,
 } from "../core/errors.ts";
 import type { PRNG } from "../core/prng/types.ts";
 import type { AbnormalFlag } from "../entities/types.ts";
 import type { ObservationDistributionSpec } from "./types.ts";
+
+/**
+ * Maximum number of decimal places an observation value can be rounded to.
+ */
+export const MAX_DECIMALS = 4;
 
 /**
  * How many times `sampleObservationValue` redraws after a first draw lands
@@ -47,6 +53,11 @@ export function sampleObservationValue(
 	spec: ObservationDistributionSpec,
 ): number {
 	const { mean, stdDev, clamp, decimals } = spec;
+	if (
+		!(Number.isInteger(decimals) && decimals >= 0 && decimals <= MAX_DECIMALS)
+	) {
+		throw new InvalidDecimalsError(decimals);
+	}
 	const scale = 10 ** decimals;
 	// The tightest bounds that are representable at `decimals`, so rounding
 	// can never land a value outside clamp.

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	computeAbnormalFlag,
+	MAX_DECIMALS,
 	MAX_RESAMPLE_ATTEMPTS,
 	rollProbability,
 	sampleObservationValue,
@@ -8,6 +9,7 @@ import {
 import type { ObservationDistributionSpec } from "../../src/archetypes/types.ts";
 import {
 	ClinicalFakerError,
+	InvalidDecimalsError,
 	InvalidProbabilityError,
 	UnsatisfiableObservationSpecError,
 } from "../../src/core/errors.ts";
@@ -246,6 +248,37 @@ describe("sampleObservationValue", () => {
 		} catch (error) {
 			expect(error).toBeInstanceOf(ClinicalFakerError);
 			expect(error).toBeInstanceOf(UnsatisfiableObservationSpecError);
+		}
+	});
+
+	test("rejects decimals outside [0, MAX_DECIMALS] or non-integer", () => {
+		for (const decimals of [1.5, -1, Number.NaN, 5]) {
+			const s = spec({ decimals });
+			expect(() => sampleObservationValue(createMulberry32(1), s)).toThrow(
+				InvalidDecimalsError,
+			);
+			try {
+				sampleObservationValue(createMulberry32(1), s);
+			} catch (error) {
+				expect(error).toBeInstanceOf(ClinicalFakerError);
+				expect(error).toBeInstanceOf(InvalidDecimalsError);
+				if (error instanceof InvalidDecimalsError) {
+					if (Number.isNaN(decimals)) {
+						expect(Number.isNaN(error.decimals)).toBe(true);
+					} else {
+						expect(error.decimals).toBe(decimals);
+					}
+				}
+			}
+		}
+	});
+
+	test("accepts valid decimals 0 and MAX_DECIMALS", () => {
+		for (const decimals of [0, MAX_DECIMALS]) {
+			const s = spec({ decimals });
+			expect(() =>
+				sampleObservationValue(createMulberry32(1), s),
+			).not.toThrow();
 		}
 	});
 });

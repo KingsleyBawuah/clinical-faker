@@ -263,3 +263,16 @@ export class UnsatisfiableObservationSpecError extends ClinicalFakerError {
 		this.clamp = clamp;
 	}
 }
+
+/**
+ * Thrown when an observation distribution spec's decimals is not an integer
+ * in [0, 4] (e.g. negative, non-integer, NaN, or exceeds 4).
+ */
+export class InvalidDecimalsError extends ClinicalFakerError {
+	readonly decimals: number;
+
+	constructor(decimals: number) {
+		super(`Observation decimals must be an integer in [0, 4], got ${decimals}`);
+		this.decimals = decimals;
+	}
+}
