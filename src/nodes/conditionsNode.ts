@@ -17,24 +17,30 @@ export const MAX_ONSET_YEARS_BEFORE_ENCOUNTER = 20;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-function parseISODateToUTCMs(isoDateOrDateTime: string): number {
+export function parseISODateParts(isoDateOrDateTime: string): {
+	year: number;
+	month: number;
+	day: number;
+} {
 	const year = Number(isoDateOrDateTime.slice(0, 4));
 	const month = Number(isoDateOrDateTime.slice(5, 7));
 	const day = Number(isoDateOrDateTime.slice(8, 10));
+	return { year, month, day };
+}
+
+function parseISODateToUTCMs(isoDateOrDateTime: string): number {
+	const { year, month, day } = parseISODateParts(isoDateOrDateTime);
 	return Date.UTC(year, month - 1, day);
 }
 
+// Date.UTC intentionally normalizes Feb 29 to March 1 in non-leap years for 18th birthday derivation.
 function deriveEighteenthBirthdayMs(dob: string): number {
-	const year = Number(dob.slice(0, 4));
-	const month = Number(dob.slice(5, 7));
-	const day = Number(dob.slice(8, 10));
+	const { year, month, day } = parseISODateParts(dob);
 	return Date.UTC(year + 18, month - 1, day);
 }
 
 function deriveMaxYearsBackMs(encounterDateStr: string): number {
-	const year = Number(encounterDateStr.slice(0, 4));
-	const month = Number(encounterDateStr.slice(5, 7));
-	const day = Number(encounterDateStr.slice(8, 10));
+	const { year, month, day } = parseISODateParts(encounterDateStr);
 	return Date.UTC(year - MAX_ONSET_YEARS_BEFORE_ENCOUNTER, month - 1, day);
 }
 

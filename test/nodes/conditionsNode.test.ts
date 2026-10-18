@@ -11,6 +11,7 @@ import type {
 import {
 	createConditionsNode,
 	MAX_ONSET_YEARS_BEFORE_ENCOUNTER,
+	parseISODateParts,
 } from "../../src/nodes/conditionsNode.ts";
 
 const UUID_PATTERN =
@@ -151,6 +152,8 @@ describe("createConditionsNode", () => {
 			medications: [],
 		};
 
+		const seenIds = new Set<string>();
+
 		for (let seed = 0; seed < 50; seed++) {
 			const dagResult = resolveDAG([
 				stubArchetypeNode(archetype),
@@ -163,8 +166,15 @@ describe("createConditionsNode", () => {
 				dagResult,
 				"conditions",
 			);
-			expect(conditions[0]?.id).toMatch(UUID_PATTERN);
+			const id = conditions[0]?.id;
+			expect(id).toMatch(UUID_PATTERN);
+			if (id !== undefined) {
+				seenIds.add(id);
+			}
 		}
+
+		expect(seenIds.size).toBeGreaterThan(1);
+		expect(seenIds.size).toBe(50);
 	});
 
 	test("onsetDate always <= encounter start date, >= dob, and >= 18th birthday for adults", () => {
@@ -187,15 +197,33 @@ describe("createConditionsNode", () => {
 
 		for (const { dob, age, encStart } of testCases) {
 			const encDateOnly = encStart.slice(0, 10);
-			const dobYear = Number(dob.slice(0, 4));
-			const dobMonth = dob.slice(5, 7);
-			const dobDay = dob.slice(8, 10);
-			const eighteenthBirthday = `${dobYear + 18}-${dobMonth}-${dobDay}`;
+			const {
+				year: dobYear,
+				month: dobMonth,
+				day: dobDay,
+			} = parseISODateParts(dob);
+			const eighteenthBirthday = new Date(
+				Date.UTC(dobYear + 18, dobMonth - 1, dobDay),
+			)
+				.toISOString()
+				.slice(0, 10);
 
-			const encYear = Number(encDateOnly.slice(0, 4));
-			const encMonth = encDateOnly.slice(5, 7);
-			const encDay = encDateOnly.slice(8, 10);
-			const maxYearsBackDate = `${encYear - MAX_ONSET_YEARS_BEFORE_ENCOUNTER}-${encMonth}-${encDay}`;
+			const {
+				year: encYear,
+				month: encMonth,
+				day: encDay,
+			} = parseISODateParts(encDateOnly);
+			const maxYearsBackDate = new Date(
+				Date.UTC(
+					encYear - MAX_ONSET_YEARS_BEFORE_ENCOUNTER,
+					encMonth - 1,
+					encDay,
+				),
+			)
+				.toISOString()
+				.slice(0, 10);
+
+			const distinctOnsets = new Set<string>();
 
 			for (let seed = 0; seed < 50; seed++) {
 				const dagResult = resolveDAG([
@@ -216,7 +244,36 @@ describe("createConditionsNode", () => {
 					expect(onset >= dob).toBe(true);
 					expect(onset >= eighteenthBirthday).toBe(true);
 					expect(onset >= maxYearsBackDate).toBe(true);
+					distinctOnsets.add(onset);
 				}
+			}
+
+			// When patient has adult history before encounter (maxDaysBack > 0),
+			// verify that onset strictly prior to the encounter date occurs and that
+			// multiple distinct onset dates are produced across seeds.
+			const encounterDateMs = Date.UTC(encYear, encMonth - 1, encDay);
+			const eighteenthBirthdayMs = Date.UTC(dobYear + 18, dobMonth - 1, dobDay);
+			const maxYearsBackMs = Date.UTC(
+				encYear - MAX_ONSET_YEARS_BEFORE_ENCOUNTER,
+				encMonth - 1,
+				encDay,
+			);
+			const earliestAllowedMs = Math.max(eighteenthBirthdayMs, maxYearsBackMs);
+			const maxDaysBack = Math.max(
+				0,
+				Math.floor(
+					(encounterDateMs - earliestAllowedMs) / (24 * 60 * 60 * 1000),
+				),
+			);
+
+			if (maxDaysBack > 0) {
+				expect(distinctOnsets.size).toBeGreaterThan(1);
+				expect(Array.from(distinctOnsets).some((d) => d < encDateOnly)).toBe(
+					true,
+				);
+			} else {
+				expect(distinctOnsets.size).toBe(1);
+				expect(distinctOnsets.has(encDateOnly)).toBe(true);
 			}
 		}
 	});
@@ -234,6 +291,7 @@ describe("createConditionsNode", () => {
 		const age = 10;
 		const encStart = "2024-06-15T10:00:00.000Z";
 		const encDateOnly = encStart.slice(0, 10);
+		const distinctOnsets = new Set<string>();
 
 		for (let seed = 0; seed < 100; seed++) {
 			const dagResult = resolveDAG([
@@ -252,8 +310,12 @@ describe("createConditionsNode", () => {
 			if (onset !== undefined) {
 				expect(onset >= dob).toBe(true);
 				expect(onset <= encDateOnly).toBe(true);
+				distinctOnsets.add(onset);
 			}
 		}
+
+		expect(distinctOnsets.size).toBeGreaterThan(1);
+		expect(Array.from(distinctOnsets).some((d) => d < encDateOnly)).toBe(true);
 	});
 
 	test("stability: adding an unrelated condition to a spec does not change existing conditions' ids or onsets", () => {

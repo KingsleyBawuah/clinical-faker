@@ -132,6 +132,22 @@ describe("createArchetypeNode", () => {
 
 			expect(resA).toBe(resB);
 		}
+
+		// Across a range of seeds, selection varies and covers every candidate in the registry
+		const picked = new Set<unknown>();
+		for (let seed = 0; seed < 50; seed++) {
+			const res = resolveDAG([
+				stubDemographicsNode({ age: 30, gender: "female" }),
+				createArchetypeNode(createMulberry32(seed), registry),
+			]).get("archetype");
+			picked.add(res);
+		}
+
+		expect(picked.size).toBeGreaterThan(1);
+		expect(picked.size).toBe(Object.keys(registry).length);
+		expect(picked.has(registry.ArchetypeA)).toBe(true);
+		expect(picked.has(registry.ArchetypeB)).toBe(true);
+		expect(picked.has(registry.ArchetypeC)).toBe(true);
 	});
 
 	test("constraint filtering with a two-entry test registry (one constrained out)", () => {
