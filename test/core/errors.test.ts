@@ -11,6 +11,7 @@ import {
 	InvalidProbabilityError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
+	NoCompatibleArchetypeError,
 	NoEncounterForClinicalDataError,
 	UnknownArchetypeError,
 	UnresolvedDependencyError,
@@ -167,5 +168,16 @@ describe("ClinicalFakerError", () => {
 		expect(error.name).toBe("InvalidDecimalsError");
 		expect(error.decimals).toBe(1.5);
 		expect(error.message).toContain("1.5");
+	});
+
+	test("NoCompatibleArchetypeError extends ClinicalFakerError and carries age and gender only", () => {
+		const error = new NoCompatibleArchetypeError(45, "female");
+
+		expect(error).toBeInstanceOf(ClinicalFakerError);
+		expect(error.name).toBe("NoCompatibleArchetypeError");
+		expect(error.age).toBe(45);
+		expect(error.gender).toBe("female");
+		expect(error.message).toContain("45");
+		expect(error.message).toContain("female");
 	});
 });
