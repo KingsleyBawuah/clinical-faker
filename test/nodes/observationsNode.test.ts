@@ -12,6 +12,7 @@ import type { Encounter, ObservationEntity } from "../../src/entities/types.ts";
 import {
 	DIASTOLIC_BP_LOINC,
 	isVitalSignLoincCode,
+	SPO2_LOINC,
 	SYSTOLIC_BP_LOINC,
 } from "../../src/entities/vitalsProjection.ts";
 import {
@@ -216,6 +217,49 @@ describe("createObservationsNode", () => {
 		}
 	});
 
+	test("a zero-duration encounter (period.start === period.end) produces observations at exactly that instant without throwing", () => {
+		const instantIso = "2024-05-01T10:00:00.000Z";
+		const encounter = makeEncounter({
+			start: instantIso,
+			end: instantIso,
+		});
+
+		for (let seed = 0; seed < 50; seed++) {
+			const getResult = stubGetResult(AdultHypertension, encounter);
+			const observations = createObservationsNode(
+				createMulberry32(seed),
+			).resolve(getResult);
+
+			expect(observations).toHaveLength(AdultHypertension.observations.length);
+			for (const obs of observations) {
+				expect(obs.effectiveDateTime).toBe(instantIso);
+			}
+		}
+	});
+
+	test("an encounter anchored on a leap day that crosses midnight keeps every effectiveDateTime within the period", () => {
+		const startIso = "2024-02-29T23:30:00.000Z";
+		const endIso = "2024-03-01T00:30:00.000Z";
+		const startMs = Date.parse(startIso);
+		const endMs = Date.parse(endIso);
+		const encounter = makeEncounter({ start: startIso, end: endIso });
+
+		for (let seed = 0; seed < 100; seed++) {
+			const getResult = stubGetResult(AdultHypertension, encounter);
+			const observations = createObservationsNode(
+				createMulberry32(seed),
+			).resolve(getResult);
+
+			expect(observations).toHaveLength(AdultHypertension.observations.length);
+			for (const obs of observations) {
+				const obsMs = Date.parse(obs.effectiveDateTime);
+				expect(Number.isNaN(obsMs)).toBe(false);
+				expect(obsMs).toBeGreaterThanOrEqual(startMs);
+				expect(obsMs).toBeLessThanOrEqual(endMs);
+			}
+		}
+	});
+
 	test("all vital-sign observations share ONE seeded instant so systolic/diastolic BP always share it", () => {
 		const encounter = makeEncounter({
 			start: "2024-05-01T10:00:00.000Z",
@@ -325,6 +369,59 @@ describe("createObservationsNode", () => {
 			const extObs = extendedObservations[i];
 			expect(extObs).toEqual(baseObs);
 		}
+	});
+
+	test("stability: adding an extra vital-sign spec does not change others' values, ids, or timestamps", () => {
+		const encounter = makeEncounter({
+			start: "2024-05-01T10:00:00.000Z",
+			end: "2024-05-01T12:00:00.000Z",
+		});
+
+		const baseArchetype: ArchetypeDefinition = {
+			conditions: AdultHypertension.conditions,
+			observations: AdultHypertension.observations,
+			medications: AdultHypertension.medications,
+		};
+
+		const extraVitalSpec: ObservationDistributionSpec = {
+			loincCode: SPO2_LOINC,
+			display: "Oxygen saturation in Arterial blood by Pulse oximetry",
+			unit: "%",
+			mean: 98,
+			stdDev: 1.5,
+			clamp: { min: 70, max: 100 },
+			referenceRange: { low: 95, high: 100 },
+			decimals: 0,
+		};
+		expect(isVitalSignLoincCode(extraVitalSpec.loincCode)).toBe(true);
+
+		const extendedArchetype: ArchetypeDefinition = {
+			...baseArchetype,
+			observations: [...baseArchetype.observations, extraVitalSpec],
+		};
+
+		const seed = 999;
+		const baseObservations = createObservationsNode(
+			createMulberry32(seed),
+		).resolve(stubGetResult(baseArchetype, encounter));
+
+		const extendedObservations = createObservationsNode(
+			createMulberry32(seed),
+		).resolve(stubGetResult(extendedArchetype, encounter));
+
+		expect(extendedObservations).toHaveLength(baseObservations.length + 1);
+
+		for (const [i, baseObs] of baseObservations.entries()) {
+			const extObs = extendedObservations[i];
+			expect(extObs).toEqual(baseObs);
+		}
+
+		const newVital = extendedObservations[extendedObservations.length - 1];
+		expect(newVital).toBeDefined();
+		const systolic = baseObservations.find(
+			(o) => o.loincCode === SYSTOLIC_BP_LOINC,
+		);
+		expect(newVital?.effectiveDateTime).toBe(systolic?.effectiveDateTime);
 	});
 
 	test("handles archetype with empty observations list", () => {
