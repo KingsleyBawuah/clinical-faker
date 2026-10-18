@@ -19,6 +19,8 @@ export interface ObservationDistributionSpec {
 	readonly clamp: { readonly min: number; readonly max: number };
 	/** The clinically normal range; drives `ObservationEntity.abnormalFlag`. */
 	readonly referenceRange: { readonly low: number; readonly high: number };
+	/** Number of decimal places the sampled value is rounded to. */
+	readonly decimals: number;
 }
 
 /** A medication an archetype can prescribe, coded in RxNorm. */
