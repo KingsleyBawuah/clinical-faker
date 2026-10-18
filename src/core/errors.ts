@@ -1,3 +1,5 @@
+import type { Gender } from "../entities/types.ts";
+
 /** Base class for every error this library throws, so consumers can catch them all with one type. */
 export class ClinicalFakerError extends Error {
 	constructor(message: string) {
@@ -224,6 +226,23 @@ export class InvalidArchetypeError extends ClinicalFakerError {
 			`An archetype must be a registered name or an ArchetypeDefinition object, got ${receivedType}`,
 		);
 		this.receivedType = receivedType;
+	}
+}
+
+/**
+ * Thrown when no archetype in the registry satisfies the patient's demographics.
+ * Carries age and gender only — no patient names or other identifiers.
+ */
+export class NoCompatibleArchetypeError extends ClinicalFakerError {
+	readonly age: number;
+	readonly gender: Gender;
+
+	constructor(age: number, gender: Gender) {
+		super(
+			`No archetype in the registry satisfies demographics (age: ${age}, gender: "${gender}")`,
+		);
+		this.age = age;
+		this.gender = gender;
 	}
 }
 
