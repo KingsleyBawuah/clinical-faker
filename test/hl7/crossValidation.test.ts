@@ -45,6 +45,7 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 			"EVN",
 			"PID",
 			"PV1",
+			"DG1",
 		]);
 	});
 
@@ -162,7 +163,10 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 	});
 
 	test("a generated ORU^R01 with no observations parses cleanly as ORC + OBR with zero OBX", () => {
-		const patient = createPatient({ seed: 42 });
+		const patient = createPatient({
+			seed: 42,
+			archetype: { conditions: [], observations: [], medications: [] },
+		});
 		const message = HL7Message.parse(patient.toHL7("ORU^R01"));
 
 		expect(message.version).toBe("2.5.1");
@@ -175,6 +179,26 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 			"OBR",
 		]);
 		expect(message.getSegment("OBR")?.field(4).getValue()).toBe("85353-1");
+	});
+
+	test("a generated ORU^R01 with default observations parses cleanly with OBX segments", () => {
+		const patient = createPatient({ seed: 42 });
+		const message = HL7Message.parse(patient.toHL7("ORU^R01"));
+
+		expect(message.version).toBe("2.5.1");
+		expect(message.messageType).toBe("ORU^R01");
+		expect(message.segments.map((segment) => segment.segmentType)).toEqual([
+			"MSH",
+			"PID",
+			"PV1",
+			"ORC",
+			"OBR",
+			"OBX",
+			"OBX",
+			"OBX",
+			"OBX",
+			"OBX",
+		]);
 	});
 
 	test("a generated ORM^O01 message parses cleanly as ORC (NW) + OBR sharing a placer number, with no filler number", () => {

@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
+	InvalidArchetypeError,
 	InvalidReferenceDateError,
 	InvalidSeedError,
+	UnknownArchetypeError,
+	UnsatisfiableDemographicConstraintsError,
 } from "../src/core/errors.ts";
 import { createPatient } from "../src/generator.ts";
+import type { ArchetypeDefinition, ArchetypeName } from "../src/index.ts";
 
 describe("createPatient", () => {
 	test("the same seed produces byte-identical output, including ids", () => {
@@ -53,12 +57,235 @@ describe("createPatient", () => {
 		expect(patient.encounters).toHaveLength(1);
 	});
 
-	test("archetype-dependent entity lists are empty until Phase 4 archetypes exist", () => {
+	test("omitted archetype defaults to AdultHypertension with non-empty conditions incl. I10, observations, and medications", () => {
 		const patient = createPatient({ seed: 7 });
-		expect(patient.conditions).toEqual([]);
-		expect(patient.observations).toEqual([]);
-		expect(patient.medications).toEqual([]);
+		expect(patient.archetype).toBe("AdultHypertension");
+		expect(patient.conditions.length).toBeGreaterThan(0);
+		expect(patient.conditions.some((c) => c.code === "I10")).toBe(true);
+		expect(patient.observations.length).toBeGreaterThan(0);
+		expect(patient.medications.length).toBeGreaterThan(0);
 		expect(patient.allergies).toEqual([]);
+	});
+
+	test("archetype: 'AdultHypertension' produces identical output to omitted archetype", () => {
+		const explicit = createPatient({
+			seed: 42,
+			archetype: "AdultHypertension",
+		});
+		const implicit = createPatient({ seed: 42 });
+		expect(JSON.stringify(explicit)).toBe(JSON.stringify(implicit));
+		expect(explicit.archetype).toBe("AdultHypertension");
+	});
+
+	test("accepts a custom ArchetypeDefinition and sets archetype to undefined", () => {
+		const custom: ArchetypeDefinition = {
+			conditions: [
+				{
+					code: "E11.9",
+					display: "Type 2 diabetes mellitus without complications",
+					probability: 1.0,
+				},
+			],
+			observations: [
+				{
+					loincCode: "2345-7",
+					display: "Glucose [Mass/volume] in Serum or Plasma",
+					unit: "mg/dL",
+					mean: 140,
+					stdDev: 15,
+					clamp: { min: 40, max: 500 },
+					referenceRange: { low: 70, high: 99 },
+					decimals: 0,
+				},
+			],
+			medications: [
+				{
+					name: "metformin 500 MG Oral Tablet",
+					rxcui: "860975",
+					sig: "Take 1 tablet by mouth twice daily",
+					probability: 1.0,
+					forCondition: "E11.9",
+				},
+			],
+		};
+		const patient = createPatient({ seed: 42, archetype: custom });
+		expect(patient.archetype).toBeUndefined();
+		expect(patient.conditions).toHaveLength(1);
+		expect(patient.conditions[0]?.code).toBe("E11.9");
+		expect(patient.observations).toHaveLength(1);
+		expect(patient.observations[0]?.loincCode).toBe("2345-7");
+		expect(patient.medications).toHaveLength(1);
+		expect(patient.medications[0]?.rxcui).toBe("860975");
+	});
+
+	test("custom definition with demographicConstraints is respected over many seeds", () => {
+		const custom: ArchetypeDefinition = {
+			conditions: [],
+			observations: [],
+			medications: [],
+			demographicConstraints: {
+				minAge: 65,
+				maxAge: 75,
+				compatibleGenders: ["female"],
+			},
+		};
+		for (let seed = 1; seed <= 50; seed++) {
+			const patient = createPatient({ seed, archetype: custom });
+			expect(patient.demographics.age).toBeGreaterThanOrEqual(65);
+			expect(patient.demographics.age).toBeLessThanOrEqual(75);
+			expect(patient.demographics.gender).toBe("female");
+		}
+	});
+
+	test("unsatisfiable demographicConstraints throws UnsatisfiableDemographicConstraintsError", () => {
+		const unsatisfiableAge: ArchetypeDefinition = {
+			conditions: [],
+			observations: [],
+			medications: [],
+			demographicConstraints: { minAge: 95 },
+		};
+		expect(() => createPatient({ archetype: unsatisfiableAge })).toThrow(
+			UnsatisfiableDemographicConstraintsError,
+		);
+
+		const unsatisfiableRange: ArchetypeDefinition = {
+			conditions: [],
+			observations: [],
+			medications: [],
+			demographicConstraints: { minAge: 10, maxAge: 15 },
+		};
+		expect(() => createPatient({ archetype: unsatisfiableRange })).toThrow(
+			UnsatisfiableDemographicConstraintsError,
+		);
+
+		const emptyGenders: ArchetypeDefinition = {
+			conditions: [],
+			observations: [],
+			medications: [],
+			demographicConstraints: { compatibleGenders: [] },
+		};
+		expect(() => createPatient({ archetype: emptyGenders })).toThrow(
+			UnsatisfiableDemographicConstraintsError,
+		);
+	});
+
+	test("misspelled archetype name throws UnknownArchetypeError", () => {
+		expect(() =>
+			createPatient({
+				// type-coverage:ignore-next-line
+				archetype: "AdultHypotension" as unknown as ArchetypeName,
+			}),
+		).toThrow(UnknownArchetypeError);
+	});
+
+	test("null archetype throws InvalidArchetypeError", () => {
+		expect(() =>
+			createPatient({
+				// type-coverage:ignore-next-line
+				archetype: null as unknown as ArchetypeName,
+			}),
+		).toThrow(InvalidArchetypeError);
+	});
+
+	test("every observation's effectiveDateTime lies within the encounter period", () => {
+		for (const seed of [1, 2, 7, 42, 100]) {
+			const patient = createPatient({ seed });
+			const [encounter] = patient.encounters;
+			expect(encounter).toBeDefined();
+			if (encounter === undefined) throw new Error("unreachable");
+
+			const startMs = Date.parse(encounter.period.start);
+			const endMs =
+				encounter.period.end !== undefined
+					? Date.parse(encounter.period.end)
+					: startMs + 60 * 60 * 1000;
+
+			for (const obs of patient.observations) {
+				const obsMs = Date.parse(obs.effectiveDateTime);
+				expect(obsMs).toBeGreaterThanOrEqual(startMs);
+				expect(obsMs).toBeLessThanOrEqual(endMs);
+			}
+		}
+	});
+
+	test("medications only appear for generated conditions", () => {
+		for (let seed = 1; seed <= 50; seed++) {
+			const patient = createPatient({ seed });
+			const conditionCodes = new Set(patient.conditions.map((c) => c.code));
+			for (const med of patient.medications) {
+				if (med.rxcui === "617310") {
+					expect(conditionCodes.has("E78.5")).toBe(true);
+				} else {
+					expect(conditionCodes.has("I10")).toBe(true);
+				}
+			}
+		}
+	});
+
+	test("demographics regression pins: fixed seeds produce byte-identical demographics to pre-archetype baseline", () => {
+		expect(createPatient({ seed: 1 }).demographics).toEqual({
+			firstName: "James",
+			lastName: "Hernandez",
+			dob: "1976-02-02",
+			age: 49,
+			gender: "male",
+			mrn: { value: "MRN279518", assigningAuthority: "clinical-faker" },
+			address: {
+				line: "7125 Chestnut Street",
+				city: "Bismarck",
+				state: "ND",
+				postalCode: "58501",
+				country: "US",
+			},
+		});
+
+		expect(createPatient({ seed: 2 }).demographics).toEqual({
+			firstName: "David",
+			lastName: "Martin",
+			dob: "1965-09-04",
+			age: 59,
+			gender: "male",
+			mrn: { value: "MRN155265", assigningAuthority: "clinical-faker" },
+			address: {
+				line: "7424 Maple Street",
+				city: "Kansas City",
+				state: "MO",
+				postalCode: "64106",
+				country: "US",
+			},
+		});
+
+		expect(createPatient({ seed: 42 }).demographics).toEqual({
+			firstName: "Mary",
+			lastName: "Miller",
+			dob: "1985-02-16",
+			age: 39,
+			gender: "female",
+			mrn: { value: "MRN461577", assigningAuthority: "clinical-faker" },
+			address: {
+				line: "7439 Maple Street",
+				city: "Springfield",
+				state: "IL",
+				postalCode: "62704",
+				country: "US",
+			},
+		});
+
+		expect(createPatient({ seed: 100 }).demographics).toEqual({
+			firstName: "Mark",
+			lastName: "Williams",
+			dob: "1947-03-07",
+			age: 77,
+			gender: "male",
+			mrn: { value: "MRN341226", assigningAuthority: "clinical-faker" },
+			address: {
+				line: "4355 Spring Street",
+				city: "Milwaukee",
+				state: "WI",
+				postalCode: "53202",
+				country: "US",
+			},
+		});
 	});
 
 	test("respects an explicit referenceDate override", () => {
@@ -71,7 +298,11 @@ describe("createPatient", () => {
 		const json = patient.toJSON();
 
 		expect(json.demographics).toEqual(patient.demographics);
-		expect(json.vitals).toEqual({});
+		expect(json.vitals).toEqual({
+			systolicBp: 138,
+			diastolicBp: 93,
+			heartRate: 82,
+		});
 	});
 
 	test("JSON.stringify uses toJSON() automatically, per the JS serialization protocol", () => {
@@ -181,5 +412,50 @@ describe("createPatient", () => {
 		expect(createPatient({ seed: 7 }).toFHIR("transaction")).toEqual(
 			createPatient({ seed: 7 }).toFHIR("transaction"),
 		);
+	});
+
+	test("toHL7('ORU^R01') now has OBX segments for generated observations", () => {
+		const patient = createPatient({ seed: 42 });
+		const message = patient.toHL7("ORU^R01");
+		const lines = message.split("\r").filter(Boolean);
+		const obxLines = lines.filter((l) => l.startsWith("OBX|"));
+		expect(obxLines.length).toBe(patient.observations.length);
+		expect(obxLines.length).toBeGreaterThan(0);
+	});
+
+	test("toFHIR() bundle includes Condition, Observation, and MedicationRequest entries whose references resolve and pairs BP into 85354-9 panel", () => {
+		const patient = createPatient({ seed: 42 });
+		const bundle = patient.toFHIR();
+		const types = bundle.entry.map((e) => e.resource.resourceType);
+		expect(types).toContain("Condition");
+		expect(types).toContain("Observation");
+		expect(types).toContain("MedicationRequest");
+
+		const fullUrls = new Set(bundle.entry.map((e) => e.fullUrl));
+		const references = [
+			...JSON.stringify(bundle).matchAll(/"reference":"([^"]*)"/g),
+		].map(([, reference]) => reference ?? "");
+		expect(references.length).toBeGreaterThan(0);
+		for (const reference of references) {
+			expect(fullUrls.has(reference)).toBe(true);
+		}
+
+		// Blood pressure panel 85354-9 verification
+		const observations = bundle.entry.flatMap((e) =>
+			e.resource.resourceType === "Observation" ? [e.resource] : [],
+		);
+		const bpPanel = observations.find(
+			(o) => o.code.coding?.some((c) => c.code === "85354-9") ?? false,
+		);
+		expect(bpPanel).toBeDefined();
+		if (bpPanel === undefined) throw new Error("unreachable");
+		const components = bpPanel.component;
+		expect(components).toBeDefined();
+		if (components === undefined) throw new Error("unreachable");
+		const componentCodes = components.flatMap(
+			(c) => c.code.coding?.map((coding) => coding.code) ?? [],
+		);
+		expect(componentCodes).toContain("8480-6"); // systolic
+		expect(componentCodes).toContain("8462-4"); // diastolic
 	});
 });

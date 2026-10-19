@@ -1,3 +1,4 @@
+import type { DemographicConstraints } from "../archetypes/types.ts";
 import type { Gender } from "../entities/types.ts";
 
 /** Base class for every error this library throws, so consumers can catch them all with one type. */
@@ -293,5 +294,46 @@ export class InvalidDecimalsError extends ClinicalFakerError {
 	constructor(decimals: number) {
 		super(`Observation decimals must be an integer in [0, 4], got ${decimals}`);
 		this.decimals = decimals;
+	}
+}
+
+/**
+ * Thrown when an archetype's demographic constraints cannot be satisfied within
+ * the generator's adult age bounds [minAdultAge, maxAdultAge] or when
+ * compatibleGenders is empty. Carries constraint values and library bounds only
+ * — no patient data.
+ */
+export class UnsatisfiableDemographicConstraintsError extends ClinicalFakerError {
+	readonly minAdultAge: number;
+	readonly maxAdultAge: number;
+	readonly minAge?: number | undefined;
+	readonly maxAge?: number | undefined;
+	readonly compatibleGenders?: readonly Gender[] | undefined;
+
+	constructor(
+		minAdultAge: number,
+		maxAdultAge: number,
+		constraints: DemographicConstraints,
+	) {
+		const parts: string[] = [];
+		if (constraints.minAge !== undefined || constraints.maxAge !== undefined) {
+			parts.push(
+				`age constraint [${constraints.minAge ?? "-∞"}, ${constraints.maxAge ?? "∞"}] does not overlap adult bounds [${minAdultAge}, ${maxAdultAge}]`,
+			);
+		}
+		if (
+			constraints.compatibleGenders !== undefined &&
+			constraints.compatibleGenders.length === 0
+		) {
+			parts.push("compatibleGenders is empty");
+		}
+		super(
+			`Demographic constraints cannot be satisfied: ${parts.length > 0 ? parts.join("; ") : "no compatible intersection"}`,
+		);
+		this.minAdultAge = minAdultAge;
+		this.maxAdultAge = maxAdultAge;
+		this.minAge = constraints.minAge;
+		this.maxAge = constraints.maxAge;
+		this.compatibleGenders = constraints.compatibleGenders;
 	}
 }

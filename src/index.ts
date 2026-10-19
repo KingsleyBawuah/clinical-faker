@@ -1,3 +1,11 @@
+export { ARCHETYPES, type ArchetypeName } from "./archetypes/registry.ts";
+export type {
+	ArchetypeDefinition,
+	ConditionSpec,
+	DemographicConstraints,
+	MedicationSpec,
+	ObservationDistributionSpec,
+} from "./archetypes/types.ts";
 export {
 	ClinicalFakerError,
 	CyclicDependencyError,
@@ -5,15 +13,22 @@ export {
 	DuplicateNodeIdError,
 	EmptyHL7MessageError,
 	HL7EncodingDepthError,
+	InvalidArchetypeError,
+	InvalidDecimalsError,
 	InvalidMessageControlIdError,
+	InvalidProbabilityError,
 	InvalidReferenceDateError,
 	InvalidSeedError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
+	NoCompatibleArchetypeError,
 	NoEncounterForClinicalDataError,
+	UnknownArchetypeError,
 	UnmappedFHIRValueError,
 	UnmappedHL7ValueError,
 	UnresolvedDependencyError,
+	UnsatisfiableDemographicConstraintsError,
+	UnsatisfiableObservationSpecError,
 } from "./core/errors.ts";
 export type { PatientJSON } from "./entities/exporters/toJSON.ts";
 export type {

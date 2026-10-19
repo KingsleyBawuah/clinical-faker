@@ -74,7 +74,10 @@ function withClinicalData(graph: PatientGraph): PatientGraph {
 }
 
 describe("toFHIR", () => {
-	const graph = createPatient({ seed: 42 }).toJSON();
+	const graph = createPatient({
+		seed: 42,
+		archetype: { conditions: [], observations: [], medications: [] },
+	}).toJSON();
 
 	test("defaults to a collection bundle of Patient, Practitioner, then Encounter", () => {
 		const bundle = toFHIR(graph);
@@ -141,7 +144,10 @@ describe("toFHIR", () => {
 	});
 
 	test("the same seed and bundle type produce a deep-equal bundle", () => {
-		const other = createPatient({ seed: 42 }).toJSON();
+		const other = createPatient({
+			seed: 42,
+			archetype: { conditions: [], observations: [], medications: [] },
+		}).toJSON();
 
 		expect(toFHIR(graph, "transaction")).toEqual(toFHIR(other, "transaction"));
 	});
