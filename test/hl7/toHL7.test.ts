@@ -20,6 +20,7 @@ const PATIENT: PatientGraph = {
 			postalCode: "62704",
 			country: "US",
 		},
+		phone: "+18042221111",
 	},
 	encounters: [
 		{

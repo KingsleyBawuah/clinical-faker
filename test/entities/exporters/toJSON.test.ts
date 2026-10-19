@@ -13,6 +13,7 @@ function samplePatient(): PatientGraph {
 			dob: "1980-01-01",
 			age: 44,
 			gender: "female",
+			phone: "+18042221111",
 			mrn: { value: "MRN1", assigningAuthority: "clinical-faker" },
 			address: {
 				line: "1 Main St",

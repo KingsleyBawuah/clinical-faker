@@ -39,6 +39,7 @@ function stubDemographicsNode(
 			dob: "1980-05-15",
 			age: 44,
 			gender: "male",
+			phone: "+18042221111",
 			mrn: { value: "MRN123456", assigningAuthority: "clinical-faker" },
 			address: {
 				line: "123 Main St",

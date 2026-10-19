@@ -8,6 +8,7 @@ import {
 	HL7EncodingDepthError,
 	InvalidArchetypeError,
 	InvalidDecimalsError,
+	InvalidPhoneNumbersError,
 	InvalidProbabilityError,
 	MalformedMSHSegmentError,
 	MissingVitalSignUnitError,
@@ -179,5 +180,27 @@ describe("ClinicalFakerError", () => {
 		expect(error.gender).toBe("female");
 		expect(error.message).toContain("45");
 		expect(error.message).toContain("female");
+	});
+
+	test("InvalidPhoneNumbersError extends ClinicalFakerError and carries invalidIndices", () => {
+		const emptyError = new InvalidPhoneNumbersError(
+			"GenerationOptions.phoneNumbers must not be empty",
+		);
+		expect(emptyError).toBeInstanceOf(ClinicalFakerError);
+		expect(emptyError.name).toBe("InvalidPhoneNumbersError");
+		expect(emptyError.invalidIndices).toEqual([]);
+		expect(emptyError.message).toBe(
+			"GenerationOptions.phoneNumbers must not be empty",
+		);
+
+		const formatError = new InvalidPhoneNumbersError(
+			"GenerationOptions.phoneNumbers contains 2 invalid E.164 entry(ies) at index(es): 0, 2",
+			[0, 2],
+		);
+		expect(formatError).toBeInstanceOf(ClinicalFakerError);
+		expect(formatError.name).toBe("InvalidPhoneNumbersError");
+		expect(formatError.invalidIndices).toEqual([0, 2]);
+		expect(formatError.message).toContain("2 invalid E.164 entry(ies)");
+		expect(formatError.message).toContain("0, 2");
 	});
 });

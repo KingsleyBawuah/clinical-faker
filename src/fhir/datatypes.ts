@@ -7,6 +7,7 @@ import type {
 	Address,
 	CodeableConcept,
 	Coding,
+	ContactPoint,
 	HumanName,
 	Identifier,
 	Reference,
@@ -45,5 +46,13 @@ export function identifier(irIdentifier: IRIdentifier): Identifier {
 	return {
 		system: toFHIRIdentifierSystem(irIdentifier.assigningAuthority),
 		value: irIdentifier.value,
+	};
+}
+
+export function contactPoint(phone: string): ContactPoint {
+	return {
+		system: "phone",
+		value: phone,
+		use: "home",
 	};
 }

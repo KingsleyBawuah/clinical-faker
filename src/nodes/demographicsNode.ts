@@ -4,6 +4,7 @@ import { UnsatisfiableDemographicConstraintsError } from "../core/errors.ts";
 import { pickFrom } from "../core/prng/pickFrom.ts";
 import type { PRNG } from "../core/prng/types.ts";
 import {
+	DEFAULT_PHONE_NUMBERS,
 	pickAddress,
 	pickFirstName,
 	pickGender,
@@ -50,6 +51,7 @@ function generateMrn(prng: PRNG): Identifier {
 export function createDemographicsNode(
 	prng: PRNG,
 	constraints?: DemographicConstraints,
+	phonePool?: readonly string[],
 ): DAGNode<Demographics> {
 	return {
 		id: "demographics",
@@ -94,12 +96,16 @@ export function createDemographicsNode(
 				age = prng.nextInt(effectiveMinAge, effectiveMaxAge);
 			}
 
+			const effectivePhonePool = phonePool ?? DEFAULT_PHONE_NUMBERS;
+			const phone = pickFrom(prng.fork("phone"), effectivePhonePool);
+
 			return {
 				firstName: pickFirstName(prng, gender),
 				lastName: pickLastName(prng),
 				dob: deriveDob(seedResult.referenceDate, age, prng),
 				age,
 				gender,
+				phone,
 				mrn: generateMrn(prng),
 				address: pickAddress(prng),
 			};

@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
 	InvalidArchetypeError,
+	InvalidPhoneNumbersError,
 	InvalidReferenceDateError,
 	InvalidSeedError,
 	UnknownArchetypeError,
 	UnsatisfiableDemographicConstraintsError,
 } from "../src/core/errors.ts";
+import { DEFAULT_PHONE_NUMBERS } from "../src/entities/sampleData.ts";
 import { createPatient } from "../src/generator.ts";
 import type { ArchetypeDefinition, ArchetypeName } from "../src/index.ts";
 
@@ -229,6 +231,7 @@ describe("createPatient", () => {
 			dob: "1976-02-02",
 			age: 49,
 			gender: "male",
+			phone: "+18004444444",
 			mrn: { value: "MRN279518", assigningAuthority: "clinical-faker" },
 			address: {
 				line: "7125 Chestnut Street",
@@ -245,6 +248,7 @@ describe("createPatient", () => {
 			dob: "1965-09-04",
 			age: 59,
 			gender: "male",
+			phone: "+12136210002",
 			mrn: { value: "MRN155265", assigningAuthority: "clinical-faker" },
 			address: {
 				line: "7424 Maple Street",
@@ -261,6 +265,7 @@ describe("createPatient", () => {
 			dob: "1985-02-16",
 			age: 39,
 			gender: "female",
+			phone: "+18042221111",
 			mrn: { value: "MRN461577", assigningAuthority: "clinical-faker" },
 			address: {
 				line: "7439 Maple Street",
@@ -277,6 +282,7 @@ describe("createPatient", () => {
 			dob: "1947-03-07",
 			age: 77,
 			gender: "male",
+			phone: "+18004444444",
 			mrn: { value: "MRN341226", assigningAuthority: "clinical-faker" },
 			address: {
 				line: "4355 Spring Street",
@@ -286,6 +292,50 @@ describe("createPatient", () => {
 				country: "US",
 			},
 		});
+	});
+
+	test("default phone pool only: every generated patient receives an E.164 phone number from DEFAULT_PHONE_NUMBERS", () => {
+		const e164Pattern = /^\+[1-9]\d{1,14}$/;
+		for (let seed = 1; seed <= 100; seed++) {
+			const patient = createPatient({ seed });
+			expect(DEFAULT_PHONE_NUMBERS).toContain(patient.demographics.phone);
+			expect(patient.demographics.phone).toMatch(e164Pattern);
+		}
+	});
+
+	test("phone generation is deterministic for the same seed", () => {
+		const a = createPatient({ seed: 77 });
+		const b = createPatient({ seed: 77 });
+		expect(a.demographics.phone).toBe(b.demographics.phone);
+	});
+
+	test("phoneNumbers option overrides default pool exclusively", () => {
+		const customPool: readonly string[] = ["+18005550100", "+18005550101"];
+		for (let seed = 1; seed <= 50; seed++) {
+			const patient = createPatient({ seed, phoneNumbers: customPool });
+			expect(customPool).toContain(patient.demographics.phone);
+		}
+	});
+
+	test("invalid phoneNumbers overrides throw InvalidPhoneNumbersError", () => {
+		expect(() => createPatient({ phoneNumbers: [] })).toThrow(
+			InvalidPhoneNumbersError,
+		);
+
+		expect(() => createPatient({ phoneNumbers: ["5551234"] })).toThrow(
+			InvalidPhoneNumbersError,
+		);
+
+		expect(() => createPatient({ phoneNumbers: ["+0123"] })).toThrow(
+			InvalidPhoneNumbersError,
+		);
+
+		expect(() =>
+			createPatient({
+				// type-coverage:ignore-next-line
+				phoneNumbers: [123 as unknown as string],
+			}),
+		).toThrow(InvalidPhoneNumbersError);
 	});
 
 	test("respects an explicit referenceDate override", () => {

@@ -35,6 +35,8 @@ export interface Demographics {
 	dob: string;
 	age: number;
 	gender: Gender;
+	/** E.164-formatted synthetic telephone number sampled from public test lines. */
+	phone: string;
 	mrn: Identifier;
 	address: Address;
 }

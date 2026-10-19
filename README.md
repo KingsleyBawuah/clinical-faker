@@ -54,6 +54,7 @@ The same seed always produces the same patient — across all three export forma
     "lastName": "Doe",
     "dob": "1958-04-12",
     "gender": "female",
+    "phone": "+18042221111",
     "mrn": { "value": "MRN00042", "assigningAuthority": "clinical-faker" },
     "address": { "line": "742 Evergreen Terrace", "city": "Springfield", "state": "IL", "postalCode": "62704", "country": "US" }
   },
@@ -76,6 +77,23 @@ test("hypertensive patient has an elevated systolic reading", () => {
   expect(createPatient({ seed: 42, archetype: "AdultHypertension" })).toEqual(patient); // same seed, same patient
 });
 ```
+
+### Synthetic phone numbers
+
+Generated patients include a deterministic synthetic phone number in E.164 format (`demographics.phone`). To guarantee that synthetic data can **never** reach a real person, numbers are never randomly generated; instead, they are picked deterministically from a small built-in pool of public US test-call lines (e.g. PBX and line test numbers).
+
+**Trade-off: low variety.** Because the built-in pool is small, many synthetic patients will share the same phone number. Do not use phone numbers for duplicate-patient matching tests.
+
+To supply your own test numbers, pass `phoneNumbers` to `createPatient()`:
+
+```ts
+const patient = createPatient({
+  seed: 42,
+  phoneNumbers: ["+18005550100", "+18005550101"],
+});
+```
+
+All entries must be valid E.164 strings (`^\+[1-9]\d{1,14}$`), or `createPatient()` will throw `InvalidPhoneNumbersError`.
 
 ## MLLP mock server
 

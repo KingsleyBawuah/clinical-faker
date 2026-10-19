@@ -16,6 +16,7 @@ export {
 	InvalidArchetypeError,
 	InvalidDecimalsError,
 	InvalidMessageControlIdError,
+	InvalidPhoneNumbersError,
 	InvalidProbabilityError,
 	InvalidReferenceDateError,
 	InvalidSeedError,

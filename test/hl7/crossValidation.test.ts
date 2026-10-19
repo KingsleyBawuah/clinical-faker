@@ -93,6 +93,7 @@ describe("HL7 v2 cross-validation (independent parser: hl7v2)", () => {
 					postalCode: "62704",
 					country: "US",
 				},
+				phone: "+18042221111",
 			},
 			encounters: [
 				{

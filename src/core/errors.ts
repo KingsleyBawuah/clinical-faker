@@ -337,3 +337,17 @@ export class UnsatisfiableDemographicConstraintsError extends ClinicalFakerError
 		this.compatibleGenders = constraints.compatibleGenders;
 	}
 }
+
+/**
+ * Thrown when `GenerationOptions.phoneNumbers` is empty, contains non-strings,
+ * or contains entries not matching E.164 (`^\+[1-9]\d{1,14}$`). Carries entry
+ * count and invalid indices only, never the caller-supplied phone numbers themselves.
+ */
+export class InvalidPhoneNumbersError extends ClinicalFakerError {
+	readonly invalidIndices: readonly number[];
+
+	constructor(message: string, invalidIndices: readonly number[] = []) {
+		super(message);
+		this.invalidIndices = invalidIndices;
+	}
+}

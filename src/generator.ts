@@ -2,7 +2,11 @@ import { ARCHETYPES, type ArchetypeName } from "./archetypes/registry.ts";
 import { resolveArchetype } from "./archetypes/resolve.ts";
 import type { ArchetypeDefinition } from "./archetypes/types.ts";
 import { getNodeResult, resolveDAG } from "./core/dag/resolver.ts";
-import { InvalidReferenceDateError, InvalidSeedError } from "./core/errors.ts";
+import {
+	InvalidPhoneNumbersError,
+	InvalidReferenceDateError,
+	InvalidSeedError,
+} from "./core/errors.ts";
 import { createMulberry32 } from "./core/prng/mulberry32.ts";
 import { type PatientJSON, toJSON } from "./entities/exporters/toJSON.ts";
 import type {
@@ -31,6 +35,11 @@ export interface GenerationOptions {
 	referenceDate?: string;
 	/** Omitted → one is picked from ARCHETYPES using the seed. */
 	archetype?: ArchetypeName | ArchetypeDefinition;
+	/**
+	 * Overrides the default synthetic phone pool with caller-supplied numbers.
+	 * Must be non-empty, and each entry must match E.164 (`^\+[1-9]\d{1,14}$`).
+	 */
+	phoneNumbers?: readonly string[];
 }
 
 export interface Patient extends PatientGraph {
@@ -80,6 +89,36 @@ function assertValidReferenceDate(referenceDate: string): void {
 	}
 }
 
+const E164_PHONE_PATTERN = /^\+[1-9]\d{1,14}$/;
+
+function isArray(value: unknown): value is readonly unknown[] {
+	return Array.isArray(value);
+}
+
+function assertValidPhoneNumbers(phoneNumbers: readonly string[]): void {
+	const raw: unknown = phoneNumbers;
+	if (!isArray(raw) || raw.length === 0) {
+		throw new InvalidPhoneNumbersError(
+			"GenerationOptions.phoneNumbers must not be empty",
+		);
+	}
+
+	const invalidIndices: number[] = [];
+	for (let i = 0; i < raw.length; i++) {
+		const entry: unknown = raw[i];
+		if (typeof entry !== "string" || !E164_PHONE_PATTERN.test(entry)) {
+			invalidIndices.push(i);
+		}
+	}
+
+	if (invalidIndices.length > 0) {
+		throw new InvalidPhoneNumbersError(
+			`GenerationOptions.phoneNumbers contains ${invalidIndices.length} invalid E.164 entry(ies) at index(es): ${invalidIndices.join(", ")}`,
+			invalidIndices,
+		);
+	}
+}
+
 function buildPatientGraph(
 	seed: number,
 	options: GenerationOptions,
@@ -91,6 +130,7 @@ function buildPatientGraph(
 	const demographicsNode = createDemographicsNode(
 		rootPrng.fork("demographics"),
 		requestedDefinition?.demographicConstraints,
+		options.phoneNumbers,
 	);
 	const encounterNode = createEncounterNode(rootPrng.fork("encounter"));
 	const archetypeNode = createArchetypeNode(
@@ -175,6 +215,9 @@ export function createPatient(options: GenerationOptions = {}): Patient {
 			: generateRandomSeed();
 	if (options.referenceDate !== undefined) {
 		assertValidReferenceDate(options.referenceDate);
+	}
+	if (options.phoneNumbers !== undefined) {
+		assertValidPhoneNumbers(options.phoneNumbers);
 	}
 	const graph = buildPatientGraph(seed, options, requestedDefinition);
 
