@@ -31,7 +31,11 @@ yarn add clinical-faker
 ```ts
 import { createPatient } from "clinical-faker";
 
-const patient = createPatient({ seed: 42, archetype: "AdultHypertension" });
+// With an explicit archetype:
+const hypertensive = createPatient({ seed: 42, archetype: "AdultHypertension" });
+
+// Without archetype (auto-picked from registry using the seed):
+const patient = createPatient({ seed: 42 });
 
 patient.toJSON();               // plain canonical representation
 patient.toHL7("ADT^A01");       // pipe-delimited HL7 v2 message string

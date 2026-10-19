@@ -1,4 +1,7 @@
+import type { DemographicConstraints } from "../archetypes/types.ts";
 import type { DAGNode } from "../core/dag/types.ts";
+import { UnsatisfiableDemographicConstraintsError } from "../core/errors.ts";
+import { pickFrom } from "../core/prng/pickFrom.ts";
 import type { PRNG } from "../core/prng/types.ts";
 import {
 	pickAddress,
@@ -6,14 +9,11 @@ import {
 	pickGender,
 	pickLastName,
 } from "../entities/sampleData.ts";
-import type { Demographics, Identifier } from "../entities/types.ts";
+import type { Demographics, Gender, Identifier } from "../entities/types.ts";
 import type { SeedResult } from "./seedNode.ts";
 
-// No archetype demographicConstraints exist yet (Phase 4) — this is the
-// "realistic default adult range" docs/architecture.md's plausibility
-// invariants section refers to until an archetype narrows it.
-const MIN_ADULT_AGE = 18;
-const MAX_ADULT_AGE = 90;
+export const MIN_ADULT_AGE = 18;
+export const MAX_ADULT_AGE = 90;
 
 function deriveDob(referenceDate: string, age: number, prng: PRNG): string {
 	const referenceYear = Number(referenceDate.slice(0, 4));
@@ -47,14 +47,52 @@ function generateMrn(prng: PRNG): Identifier {
 	};
 }
 
-export function createDemographicsNode(prng: PRNG): DAGNode<Demographics> {
+export function createDemographicsNode(
+	prng: PRNG,
+	constraints?: DemographicConstraints,
+): DAGNode<Demographics> {
 	return {
 		id: "demographics",
 		dependsOn: ["seed"],
 		resolve: (getResult) => {
 			const seedResult = getResult<SeedResult>("seed");
-			const gender = pickGender(prng);
-			const age = prng.nextInt(MIN_ADULT_AGE, MAX_ADULT_AGE);
+
+			let gender: Gender;
+			let age: number;
+
+			if (constraints === undefined) {
+				gender = pickGender(prng);
+				age = prng.nextInt(MIN_ADULT_AGE, MAX_ADULT_AGE);
+			} else {
+				const effectiveMinAge = Math.max(
+					MIN_ADULT_AGE,
+					constraints.minAge ?? MIN_ADULT_AGE,
+				);
+				const effectiveMaxAge = Math.min(
+					MAX_ADULT_AGE,
+					constraints.maxAge ?? MAX_ADULT_AGE,
+				);
+
+				if (
+					effectiveMinAge > effectiveMaxAge ||
+					(constraints.compatibleGenders !== undefined &&
+						constraints.compatibleGenders.length === 0)
+				) {
+					throw new UnsatisfiableDemographicConstraintsError(
+						MIN_ADULT_AGE,
+						MAX_ADULT_AGE,
+						constraints,
+					);
+				}
+
+				if (constraints.compatibleGenders !== undefined) {
+					gender = pickFrom(prng, constraints.compatibleGenders);
+				} else {
+					gender = pickGender(prng);
+				}
+
+				age = prng.nextInt(effectiveMinAge, effectiveMaxAge);
+			}
 
 			return {
 				firstName: pickFirstName(prng, gender),

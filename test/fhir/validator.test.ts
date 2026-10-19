@@ -355,6 +355,30 @@ describe.skipIf(!ENABLED)("FHIR R4 reference validator", () => {
 		);
 	}
 
+	for (const seed of SEEDS) {
+		test(
+			`seed ${seed}: natively generated patient with clinical data validates all resources`,
+			async () => {
+				for (const resource of buildResources(
+					createPatient({ seed }).toJSON(),
+				)) {
+					await expectValid(resource);
+				}
+			},
+			VALIDATE_TIMEOUT_MS,
+		);
+	}
+
+	for (const bundleType of BUNDLE_TYPES) {
+		test(
+			`seed 42 with natively generated clinical data: a whole ${bundleType} bundle validates`,
+			async () => {
+				await expectValid(createPatient({ seed: 42 }).toFHIR(bundleType));
+			},
+			VALIDATE_TIMEOUT_MS,
+		);
+	}
+
 	// Seeds alone don't guarantee every class and both statuses get covered.
 	for (const encounterClass of ENCOUNTER_CLASSES) {
 		for (const ended of [true, false]) {

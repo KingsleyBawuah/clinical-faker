@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Archetype support: `GenerationOptions.archetype` accepts a registered name or a custom `ArchetypeDefinition`; when omitted, an archetype is picked from `ARCHETYPES` using the seed. Built-in registry includes `AdultHypertension` (`I10` primary condition, probabilistic `E78.5` comorbidity, elevated blood pressure and lab observations, and condition-specific medications). Types `ArchetypeName`, `ArchetypeDefinition`, `ConditionSpec`, `ObservationDistributionSpec`, `MedicationSpec`, and `DemographicConstraints` are exported from the package root.
+- Phase 4 error classes exported from the package root: `UnknownArchetypeError`, `InvalidArchetypeError`, `NoCompatibleArchetypeError`, `InvalidProbabilityError`, `UnsatisfiableObservationSpecError`, `InvalidDecimalsError`, and `UnsatisfiableDemographicConstraintsError` (thrown when requested archetype demographic constraints have an empty intersection with adult bounds `[18, 90]` or empty compatible genders).
 - Project scaffold: Bun/TypeScript/Biome toolchain, contributor conventions, and design docs (`docs/architecture.md`, `docs/implementation.md`).
 - CI workflow with quality gates: lint, typecheck, type coverage, tests, build, license checks, and commit message linting.
 - Seeded PRNG core (`src/core/prng`): SplitMix32 seed derivation, Mulberry32 generation streams with deterministic `fork()`, stateless Box-Muller Gaussian sampling, and seeded RFC 4122 v4-shaped UUIDs — the determinism foundation the rest of the generator builds on. Not yet exposed via a public entry point.
@@ -26,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Patients now include conditions, observations, and medications by default via seeded archetype assignment (`AdultHypertension`). The same seed continues to produce byte-identical demographics and encounter values as before, while clinical lists are now populated.
 - `Patient.toJSON()` output now includes `encounters[].attendingProvider.id`, a seeded UUID. All other seeded values are unchanged.
 - `Identifier.assigningAuthority` is now typed `AssigningAuthority` (`"NPI" | "clinical-faker"`, exported from the package root) instead of `string`.
 - Generated addresses now draw from 98 real US city/state/ZIP combinations (all 50 states + DC) and 50 street names, up from 8 and 10, so bulk generation repeats far less. Every ZIP is checked against Census 2020 ZCTA data; the IRS-only Austin ZIP `73301` and PO-box-only Boise ZIP `83701` are gone. The same seed still produces the same patient, but generated addresses differ from earlier versions.

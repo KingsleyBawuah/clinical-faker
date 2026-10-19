@@ -1,24 +1,36 @@
+import { ARCHETYPES, type ArchetypeName } from "./archetypes/registry.ts";
+import { resolveArchetype } from "./archetypes/resolve.ts";
+import type { ArchetypeDefinition } from "./archetypes/types.ts";
 import { getNodeResult, resolveDAG } from "./core/dag/resolver.ts";
 import { InvalidReferenceDateError, InvalidSeedError } from "./core/errors.ts";
 import { createMulberry32 } from "./core/prng/mulberry32.ts";
 import { type PatientJSON, toJSON } from "./entities/exporters/toJSON.ts";
 import type {
+	ConditionEntity,
 	Demographics,
 	Encounter,
+	MedicationEntity,
+	ObservationEntity,
 	PatientGraph,
 } from "./entities/types.ts";
 import { toFHIR } from "./fhir/toFHIR.ts";
 import type { Bundle, FHIRBundleType } from "./fhir/types.ts";
 import type { HL7EventType, HL7ExportOptions } from "./hl7/exportOptions.ts";
 import { toHL7 } from "./hl7/toHL7.ts";
+import { createArchetypeNode } from "./nodes/archetypeNode.ts";
+import { createConditionsNode } from "./nodes/conditionsNode.ts";
 import { createDemographicsNode } from "./nodes/demographicsNode.ts";
 import { createEncounterNode } from "./nodes/encounterNode.ts";
+import { createMedicationsNode } from "./nodes/medicationsNode.ts";
+import { createObservationsNode } from "./nodes/observationsNode.ts";
 import { createSeedNode, type SeedResult } from "./nodes/seedNode.ts";
 
 export interface GenerationOptions {
 	seed?: number;
 	/** Overrides the deterministic seed-derived default. Rarely needed. */
 	referenceDate?: string;
+	/** Omitted → one is picked from ARCHETYPES using the seed. */
+	archetype?: ArchetypeName | ArchetypeDefinition;
 }
 
 export interface Patient extends PatientGraph {
@@ -71,30 +83,77 @@ function assertValidReferenceDate(referenceDate: string): void {
 function buildPatientGraph(
 	seed: number,
 	options: GenerationOptions,
+	requestedDefinition?: ArchetypeDefinition,
 ): PatientGraph {
 	const rootPrng = createMulberry32(seed);
 
 	const seedNode = createSeedNode(rootPrng.fork("seed"), options.referenceDate);
 	const demographicsNode = createDemographicsNode(
 		rootPrng.fork("demographics"),
+		requestedDefinition?.demographicConstraints,
 	);
 	const encounterNode = createEncounterNode(rootPrng.fork("encounter"));
+	const archetypeNode = createArchetypeNode(
+		rootPrng.fork("archetype"),
+		ARCHETYPES,
+		requestedDefinition,
+	);
+	const conditionsNode = createConditionsNode(rootPrng.fork("conditions"));
+	const observationsNode = createObservationsNode(
+		rootPrng.fork("observations"),
+	);
+	const medicationsNode = createMedicationsNode(rootPrng.fork("medications"));
 
-	const results = resolveDAG([seedNode, demographicsNode, encounterNode]);
+	const results = resolveDAG([
+		seedNode,
+		demographicsNode,
+		encounterNode,
+		archetypeNode,
+		conditionsNode,
+		observationsNode,
+		medicationsNode,
+	]);
 
 	const seedResult = getNodeResult<SeedResult>(results, "seed");
 	const demographics = getNodeResult<Demographics>(results, "demographics");
 	const encounter = getNodeResult<Encounter>(results, "encounter");
+	const resolvedArchetype = getNodeResult<ArchetypeDefinition>(
+		results,
+		"archetype",
+	);
+	const conditions = getNodeResult<readonly ConditionEntity[]>(
+		results,
+		"conditions",
+	);
+	const observations = getNodeResult<readonly ObservationEntity[]>(
+		results,
+		"observations",
+	);
+	const medications = getNodeResult<readonly MedicationEntity[]>(
+		results,
+		"medications",
+	);
+
+	let archetypeName: string | undefined;
+	for (const [key, definition] of Object.entries(ARCHETYPES).sort(([a], [b]) =>
+		a.localeCompare(b),
+	)) {
+		if (definition === resolvedArchetype) {
+			archetypeName = key;
+			break;
+		}
+	}
 
 	return {
 		id: seedResult.patientId,
 		seed,
 		referenceDate: seedResult.referenceDate,
 		demographics,
+		...(archetypeName !== undefined ? { archetype: archetypeName } : {}),
 		encounters: [encounter],
-		conditions: [],
-		observations: [],
-		medications: [],
+		conditions: [...conditions],
+		observations: [...observations],
+		medications: [...medications],
 		allergies: [],
 	};
 }
@@ -106,6 +165,10 @@ function buildPatientGraph(
  * caller can capture it for later reproduction).
  */
 export function createPatient(options: GenerationOptions = {}): Patient {
+	const requestedDefinition =
+		options.archetype !== undefined
+			? resolveArchetype(options.archetype, ARCHETYPES)
+			: undefined;
 	const seed =
 		options.seed !== undefined
 			? normalizeSeed(options.seed)
@@ -113,7 +176,7 @@ export function createPatient(options: GenerationOptions = {}): Patient {
 	if (options.referenceDate !== undefined) {
 		assertValidReferenceDate(options.referenceDate);
 	}
-	const graph = buildPatientGraph(seed, options);
+	const graph = buildPatientGraph(seed, options, requestedDefinition);
 
 	return {
 		...graph,
