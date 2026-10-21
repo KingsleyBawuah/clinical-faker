@@ -14,6 +14,7 @@ const BASE_PATIENT: PatientGraph = {
 		dob: "1958-04-12",
 		age: 65,
 		gender: "male",
+		phone: "+18042221111",
 		mrn: { value: "MRN00042", assigningAuthority: "clinical-faker" },
 		address: {
 			line: "742 Evergreen Terrace",

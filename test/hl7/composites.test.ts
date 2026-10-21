@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ce, cx, msg, xad, xcn, xpn } from "../../src/hl7/composites.ts";
+import { ce, cx, msg, xad, xcn, xpn, xtn } from "../../src/hl7/composites.ts";
 import { serializeMessage } from "../../src/hl7/serializeMessage.ts";
 import type { HL7Message } from "../../src/hl7/types.ts";
 import { STANDARD_HL7_DELIMITERS } from "../../src/hl7/types.ts";
@@ -84,5 +84,22 @@ describe("ce", () => {
 		expect(serializeField(ce("", "Peanuts", ""))).toBe(
 			`${D.component}Peanuts${D.component}`,
 		);
+	});
+});
+
+describe("xtn", () => {
+	test("serializes a +1 number into country code (XTN-5), area code (XTN-6), local number (XTN-7) with PRN and PH", () => {
+		const field = xtn("+18042221111");
+		// Component layout: ^PRN^PH^^1^804^2221111
+		expect(serializeField(field)).toBe(
+			`${D.component}PRN${D.component}PH${D.component}${D.component}1${D.component}804${D.component}2221111`,
+		);
+	});
+
+	test("serializes a non-+1 number into XTN-12 with PRN and PH", () => {
+		const field = xtn("+442087599036");
+		// Component layout: ^PRN^PH^^^^^^^^^+442087599036
+		const expectedPrefix = `${D.component}PRN${D.component}PH${D.component.repeat(9)}`;
+		expect(serializeField(field)).toBe(`${expectedPrefix}+442087599036`);
 	});
 });

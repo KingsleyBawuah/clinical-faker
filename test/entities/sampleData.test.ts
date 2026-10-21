@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createMulberry32 } from "../../src/core/prng/mulberry32.ts";
 import {
 	CITIES,
+	DEFAULT_PHONE_NUMBERS,
 	pickAddress,
 	pickFirstName,
 	pickGender,
@@ -118,5 +119,22 @@ describe("pickAddress", () => {
 			const { city, state, postalCode } = pickAddress(prng);
 			expect(CITIES).toContainEqual({ city, state, postalCode });
 		}
+	});
+});
+
+describe("DEFAULT_PHONE_NUMBERS", () => {
+	test("is non-empty and contains only valid US E.164 phone numbers", () => {
+		expect(DEFAULT_PHONE_NUMBERS.length).toBeGreaterThan(0);
+		const e164Regex = /^\+[1-9]\d{1,14}$/;
+		for (const phone of DEFAULT_PHONE_NUMBERS) {
+			expect(phone).toMatch(e164Regex);
+			expect(phone.startsWith("+1")).toBe(true);
+		}
+	});
+
+	test("contains no duplicate entries", () => {
+		expect(new Set(DEFAULT_PHONE_NUMBERS).size).toBe(
+			DEFAULT_PHONE_NUMBERS.length,
+		);
 	});
 });

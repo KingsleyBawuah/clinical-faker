@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { getNodeResult } from "../../src/core/dag/resolver.ts";
 import { createMulberry32 } from "../../src/core/prng/mulberry32.ts";
+import { DEFAULT_PHONE_NUMBERS } from "../../src/entities/sampleData.ts";
 import type { Gender } from "../../src/entities/types.ts";
 import { createDemographicsNode } from "../../src/nodes/demographicsNode.ts";
 import type { SeedResult } from "../../src/nodes/seedNode.ts";
@@ -91,9 +92,26 @@ describe("createDemographicsNode", () => {
 		expect(demographics.firstName.length).toBeGreaterThan(0);
 		expect(demographics.lastName.length).toBeGreaterThan(0);
 		expect(validGenders).toContain(demographics.gender);
+		expect(DEFAULT_PHONE_NUMBERS).toContain(demographics.phone);
 		expect(demographics.mrn.value.length).toBeGreaterThan(0);
 		expect(demographics.mrn.assigningAuthority.length).toBeGreaterThan(0);
 		expect(demographics.address.line.length).toBeGreaterThan(0);
+	});
+
+	test("respects custom phonePool override", () => {
+		const customPool: readonly string[] = ["+18005550199", "+18005550198"];
+		const node = createDemographicsNode(
+			createMulberry32(5),
+			undefined,
+			customPool,
+		);
+		const getResult = stubSeedResult({
+			patientId: "unused",
+			referenceDate: "2024-01-01",
+		});
+
+		const demographics = node.resolve(getResult);
+		expect(customPool).toContain(demographics.phone);
 	});
 
 	test("is deterministic: same seed and referenceDate produce the same demographics", () => {

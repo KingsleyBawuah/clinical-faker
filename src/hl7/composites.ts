@@ -97,3 +97,52 @@ export function ce(
 ): HL7Value {
 	return singleRepetition([identifier, text, codingSystem]);
 }
+
+/**
+ * XTN (Extended Telecommunication Number) per HL7 v2.5.1 (Chapter 2A, Data Types;
+ * confirmed against hl7v2-dictionary's XTNType enum):
+ * - XTN-1: Telephone Number (deprecated in v2.5.1)
+ * - XTN-2: Telecommunication Use Code (PRN = Primary Residence Number, Table 0201)
+ * - XTN-3: Telecommunication Equipment Type (PH = Telephone, Table 0202)
+ * - XTN-4: Communication Address
+ * - XTN-5: Country Code
+ * - XTN-6: Area/City Code
+ * - XTN-7: Local Number
+ * - XTN-8..11: Extension, Any Text, Extension Prefix, Speed Dial Code
+ * - XTN-12: Unformatted Telephone Number
+ *
+ * For +1 numbers (10 digits following +1), splits into country code (XTN-5: "1"),
+ * area code (XTN-6), local number (XTN-7).
+ * For non-+1 caller-supplied numbers, places the full E.164 string into XTN-12.
+ * Both forms include use code PRN and equipment type PH.
+ */
+export function xtn(phone: string): HL7Value {
+	if (phone.startsWith("+1") && phone.length === 12) {
+		const countryCode = "1";
+		const areaCode = phone.slice(2, 5);
+		const localNumber = phone.slice(5);
+		return singleRepetition([
+			"",
+			"PRN",
+			"PH",
+			"",
+			countryCode,
+			areaCode,
+			localNumber,
+		]);
+	}
+	return singleRepetition([
+		"",
+		"PRN",
+		"PH",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		phone,
+	]);
+}

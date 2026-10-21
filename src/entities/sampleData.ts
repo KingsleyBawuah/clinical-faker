@@ -267,3 +267,26 @@ export function pickAddress(prng: PRNG): Address {
 		country: "US",
 	};
 }
+
+/**
+ * Default pool of public US test-call phone numbers in E.164 format.
+ * No built-in random or "realistic" generation is ever used so that a generated
+ * number can never reach a real person.
+ *
+ * Sources:
+ * - +18042221111: InfoTel Systems PBX test line (https://testcall.com/804-222-1111/)
+ * - +18004444444: MCI Automatic Number Identification (ANI) / Caller ID readback (https://shaun.net/resources/test-phone-numbers/)
+ * - +12136210002: Milliwatt 1004 Hz test tone (https://shaun.net/resources/test-phone-numbers/)
+ * - +16317918378: CallCentric NY echo test and call quality line (https://www.callcentric.com/faq/)
+ * - +12484345508: Rickroll music/novelty test line (https://www.urbandictionary.com/define.php?term=248-434-5508)
+ *
+ * Candidate +18003733411 (OnSIP free 411) was dropped as it is no longer listed on
+ * active test-number directories and has been hijacked for third-party spam.
+ */
+export const DEFAULT_PHONE_NUMBERS: readonly string[] = [
+	"+18042221111",
+	"+18004444444",
+	"+12136210002",
+	"+16317918378",
+	"+12484345508",
+] as const;

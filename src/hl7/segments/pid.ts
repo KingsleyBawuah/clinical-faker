@@ -1,5 +1,5 @@
 import type { Demographics } from "../../entities/types.ts";
-import { cx, xad, xpn } from "../composites.ts";
+import { cx, xad, xpn, xtn } from "../composites.ts";
 import { toHL7Gender } from "../mappings/gender.ts";
 import { toDTM } from "../toDTM.ts";
 import type { HL7Segment } from "../types.ts";
@@ -10,6 +10,7 @@ import { buildSegmentFromFields } from "./buildSegmentFromFields.ts";
  * to `"1"` — every message this library generates carries exactly one
  * patient, so there's nothing to actually number. `PID-2` (the deprecated
  * External ID field) is intentionally left empty in favor of `PID-3`.
+ * `PID-13` carries home phone as an XTN composite.
  */
 export function buildPIDSegment(demographics: Demographics): HL7Segment {
 	return buildSegmentFromFields("PID", {
@@ -19,5 +20,6 @@ export function buildPIDSegment(demographics: Demographics): HL7Segment {
 		7: toDTM(demographics.dob, "date"),
 		8: toHL7Gender(demographics.gender),
 		11: xad(demographics.address),
+		13: xtn(demographics.phone),
 	});
 }

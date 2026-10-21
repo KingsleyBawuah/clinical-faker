@@ -57,6 +57,12 @@ export interface Meta {
 	profile: string[];
 }
 
+export interface ContactPoint {
+	system: "phone" | "fax" | "email" | "pager" | "url" | "sms" | "other";
+	value: string;
+	use?: "home" | "work" | "temp" | "old" | "mobile";
+}
+
 // --- Resources ---
 
 export type AdministrativeGender = "male" | "female" | "other" | "unknown";
@@ -66,6 +72,7 @@ export interface Patient {
 	id: string;
 	identifier: Identifier[];
 	name: HumanName[];
+	telecom: ContactPoint[];
 	gender: AdministrativeGender;
 	birthDate: string;
 	address: Address[];
