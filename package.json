@@ -37,7 +37,7 @@
 		"@commitlint/cli": "21.2.3",
 		"@commitlint/config-conventional": "21.2.4",
 		"@types/bun": "1.4.3",
-		"fhir-validator-wrapper": "1.4.0",
+		"fhir-validator-wrapper": "1.5.0",
 		"hl7v2": "2.2.2",
 		"hl7v2-dictionary": "2.2.2",
 		"license-checker": "25.0.1",
