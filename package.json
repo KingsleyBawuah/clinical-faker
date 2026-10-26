@@ -33,7 +33,7 @@
 		"license-check": "license-checker --failOn 'GPL-1.0;GPL-2.0;GPL-3.0;AGPL-1.0;AGPL-3.0;LGPL-2.0;LGPL-2.1;LGPL-3.0;SSPL-1.0;CPAL-1.0' --summary"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.15",
+		"@biomejs/biome": "2.6.2",
 		"@commitlint/cli": "21.2.3",
 		"@commitlint/config-conventional": "21.2.4",
 		"@types/bun": "1.4.3",
